@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "audio-lens"
+version = "0.1.0"
+description = "Audio transcription and speech analysis for the prism lens family"
+requires-python = ">=3.11"
+dependencies = [
+    "faster-whisper>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.scripts]
+audio-lens = "audio_lens.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/audio_lens"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
