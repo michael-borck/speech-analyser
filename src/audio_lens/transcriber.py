@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -30,9 +31,9 @@ class Transcriber:
 
     def __init__(self, model_size: str = "base") -> None:
         self._model_size = model_size
-        self._model = None
+        self._model: Any = None
 
-    def _load(self):
+    def _load(self) -> Any:
         if self._model is None:
             from faster_whisper import WhisperModel
             self._model = WhisperModel(self._model_size, device="cpu", compute_type="int8")

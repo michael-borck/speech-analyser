@@ -45,6 +45,8 @@ def main() -> None:
 
         if args.as_json:
             print(json.dumps(result, indent=2))
+            if not result["success"]:
+                sys.exit(1)
         else:
             if not result["success"]:
                 print(f"Error: {result['error']}", file=sys.stderr)

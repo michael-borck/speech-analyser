@@ -39,7 +39,7 @@ class SpeechAnalyzer:
             "speaking_rate_wpm": speaking_rate,
             "filler_word_count": filler_count,
             "filler_word_rate": filler_rate,
-            "filler_words_found": filler_words_found,
+            "filler_words_found": sorted(filler_words_found),
             "silence_ratio": silence_ratio,
             "actual_speaking_time": round(speaking_time, 1),
         }
