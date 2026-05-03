@@ -5,10 +5,14 @@ build-backend = "hatchling.build"
 [project]
 name = "audio-lens"
 version = "0.1.0"
-description = "Audio transcription and speech analysis for the prism lens family"
+description = "Audio transcription and speech analysis for the poly-lens family"
 requires-python = ">=3.11"
 dependencies = [
     "faster-whisper>=1.0.0",
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "python-multipart>=0.0.9",
+    "slowapi>=0.1.9",
 ]
 
 [project.optional-dependencies]
@@ -18,7 +22,7 @@ dev = [
 ]
 
 [project.scripts]
-audio-lens = "audio_lens.cli:main"
+audiolens = "audio_lens.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/audio_lens"]
