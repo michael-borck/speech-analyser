@@ -1,8 +1,9 @@
 from pathlib import Path
 from typing import Any
 
-from .transcriber import Transcriber
+from .exceptions import AudioLensError
 from .speech_analyzer import SpeechAnalyzer
+from .transcriber import Transcriber
 
 
 class AudioLens:
@@ -10,7 +11,6 @@ class AudioLens:
 
     Args:
         model_size: Whisper model size. Options: tiny, base, small, medium, large-v3.
-                    Larger = more accurate, slower. Default 'base' suits most cases.
     """
 
     def __init__(self, model_size: str = "base") -> None:
@@ -18,47 +18,42 @@ class AudioLens:
         self._analyzer = SpeechAnalyzer()
 
     def analyse(self, file_path: Path | str) -> dict[str, Any]:
-        """Analyse an audio file.
+        """Analyse an audio file. Returns the analysis dict directly.
 
-        Returns:
-            dict with keys:
-              success (bool)
-              data (dict): transcript, language, duration, segments,
-                           speech_metrics, file_path, file_size
-              error (str): present only on failure
+        Raises:
+            AudioLensError: if the file is missing, format is unsupported,
+                            or transcription fails.
         """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
+        if not file_path.exists():
+            raise AudioLensError(f"File not found: {file_path}")
+
+        if file_path.suffix.lower() not in self._transcriber.SUPPORTED_EXTENSIONS:
+            raise AudioLensError(
+                f"Unsupported audio format: {file_path.suffix}. "
+                f"Supported: {', '.join(sorted(self._transcriber.SUPPORTED_EXTENSIONS))}"
+            )
+
         try:
-            if isinstance(file_path, str):
-                file_path = Path(file_path)
-
-            if file_path.suffix.lower() not in self._transcriber.SUPPORTED_EXTENSIONS:
-                return {
-                    "success": False,
-                    "error": (
-                        f"Unsupported audio format: {file_path.suffix}. "
-                        f"Supported: {', '.join(sorted(self._transcriber.SUPPORTED_EXTENSIONS))}"
-                    ),
-                    "data": {},
-                }
-
             file_size = file_path.stat().st_size
             result = self._transcriber.transcribe(file_path)
             metrics = self._analyzer.analyse(result)
 
             return {
-                "success": True,
-                "data": {
-                    "transcript": result.text,
-                    "language": result.language,
-                    "duration": result.duration,
-                    "segments": [
-                        {"start": s.start, "end": s.end, "text": s.text}
-                        for s in result.segments
-                    ],
-                    "speech_metrics": metrics,
-                    "file_path": str(file_path),
-                    "file_size": file_size,
-                },
+                "transcript": result.text,
+                "language": result.language,
+                "duration": result.duration,
+                "segments": [
+                    {"start": s.start, "end": s.end, "text": s.text}
+                    for s in result.segments
+                ],
+                "speech_metrics": metrics,
+                "file_path": str(file_path),
+                "file_size": file_size,
             }
+        except AudioLensError:
+            raise
         except Exception as e:
-            return {"success": False, "error": repr(e), "data": {}}
+            raise AudioLensError(repr(e)) from e
