@@ -56,4 +56,4 @@ class AudioLens:
         except AudioLensError:
             raise
         except Exception as e:
-            raise AudioLensError(repr(e)) from e
+            raise AudioLensError(str(e)) from e
