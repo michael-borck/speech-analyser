@@ -68,7 +68,7 @@ def _cmd_analyse(args) -> None:
     from .audio_lens import AudioLens
     from .exceptions import AudioLensError
 
-    model = args.model or os.getenv("AUDIO_LENS_MODEL", "base")
+    model = args.model if args.model is not None else os.getenv("AUDIO_LENS_MODEL", "base")
     lens = AudioLens(model_size=model)
 
     try:

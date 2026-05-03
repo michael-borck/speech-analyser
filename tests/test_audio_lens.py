@@ -1,5 +1,8 @@
 """Integration tests for AudioLens."""
 
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -44,10 +47,6 @@ class TestAudioLensSilent:
         assert "data" not in result
 
 
-import subprocess
-import sys
-
-
 class TestCLI:
     def test_analyse_unsupported_exits_1(self, tmp_path: Path):
         p = tmp_path / "file.xyz"
@@ -57,7 +56,7 @@ class TestCLI:
             capture_output=True, text=True,
         )
         assert proc.returncode == 1
-        err = __import__("json").loads(proc.stderr)
+        err = json.loads(proc.stderr)
         assert "error" in err
         assert "success" not in err
 
