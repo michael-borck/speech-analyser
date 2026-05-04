@@ -25,12 +25,15 @@ def _detect_fillers(text: str) -> tuple[int, list[str]]:
     tokens = lower.split()
     counts: dict[str, int] = {}
 
-    for tok in tokens:
-        clean = re.sub(r"^[^\w']+|[^\w']+$", "", tok)
+    # Build cleaned tokens once — used for both single-word and multi-word matching
+    cleaned_tokens = [re.sub(r"^[^\w']+|[^\w']+$", "", tok) for tok in tokens]
+
+    for clean in cleaned_tokens:
         if clean in _SINGLE_WORD_FILLERS:
             counts[clean] = counts.get(clean, 0) + 1
 
-    joined = " " + " ".join(tokens) + " "
+    # Use cleaned tokens so punctuation doesn't block multi-word phrase matching
+    joined = " " + " ".join(cleaned_tokens) + " "
     for phrase in _MULTI_WORD_FILLERS:
         needle = " " + phrase + " "
         idx, n = 0, 0

@@ -1,7 +1,6 @@
 """Unit tests for SpeechAnalyzer — no audio files needed."""
 
-import pytest
-from audio_lens.speech_analyzer import SpeechAnalyzer, _detect_fillers, _pace_category, _quality_score
+from audio_lens.speech_analyzer import SpeechAnalyzer, _detect_fillers, _pace_category, _quality_score, _insights
 from audio_lens.transcriber import Segment, TranscriptionResult
 
 
@@ -34,6 +33,11 @@ class TestFillerDetection:
     def test_no_fillers(self):
         count, found = _detect_fillers("The quick brown fox jumps")
         assert count == 0
+
+    def test_multi_word_filler_with_punctuation(self):
+        count, found = _detect_fillers("you know, I think you know.")
+        assert count >= 2
+        assert "you know" in found
 
 
 class TestPaceCategory:
@@ -154,3 +158,26 @@ class TestSpeechAnalyzer:
         m = SpeechAnalyzer().analyse(result)
         assert "you know" in m["filler_words_found"]
         assert m["filler_word_count"] >= 2
+
+
+class TestInsights:
+    def test_high_filler_rate_observation(self):
+        _, _, ratings = _quality_score(filler_rate=0.15, avg_words_per_segment=10.0, wpm=140.0, speaker_percentages=[])
+        result = _insights(filler_rate=0.15, avg_words_per_segment=10.0, wpm=140.0, quality_ratings=ratings, speaker_data=[])
+        assert any("Filler" in o for o in result["observations"])
+
+    def test_short_turns_observation(self):
+        _, _, ratings = _quality_score(filler_rate=0.0, avg_words_per_segment=3.0, wpm=140.0, speaker_percentages=[])
+        result = _insights(filler_rate=0.0, avg_words_per_segment=3.0, wpm=140.0, quality_ratings=ratings, speaker_data=[])
+        assert any("short turns" in o for o in result["observations"])
+
+    def test_dominant_speaker_observation(self):
+        speaker_data = [{"id": "SPEAKER_00", "percentage": 85.0}, {"id": "SPEAKER_01", "percentage": 15.0}]
+        _, _, ratings = _quality_score(filler_rate=0.0, avg_words_per_segment=15.0, wpm=150.0, speaker_percentages=[85.0, 15.0])
+        result = _insights(filler_rate=0.0, avg_words_per_segment=15.0, wpm=150.0, quality_ratings=ratings, speaker_data=speaker_data)
+        assert any("SPEAKER_00" in o for o in result["observations"])
+
+    def test_fallback_strength_when_no_strengths_fire(self):
+        _, _, ratings = _quality_score(filler_rate=0.15, avg_words_per_segment=3.0, wpm=50.0, speaker_percentages=[])
+        result = _insights(filler_rate=0.15, avg_words_per_segment=3.0, wpm=50.0, quality_ratings=ratings, speaker_data=[])
+        assert len(result["strengths"]) >= 1  # fallback fires
