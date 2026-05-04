@@ -46,6 +46,13 @@ class TestAudioLensSilent:
         assert "success" not in result
         assert "data" not in result
 
+    def test_model_not_available_is_subclass_of_audio_lens_error(self):
+        from audio_lens.exceptions import ModelNotAvailableError, AudioLensError
+        assert issubclass(ModelNotAvailableError, AudioLensError)
+
+    def test_model_not_available_exported_from_package(self):
+        from audio_lens import ModelNotAvailableError  # noqa: F401
+
 
 class TestCLI:
     def test_analyse_unsupported_exits_1(self, tmp_path: Path):

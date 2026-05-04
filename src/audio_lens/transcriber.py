@@ -1,4 +1,5 @@
-from dataclasses import dataclass, field
+import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,27 @@ class TranscriptionResult:
     duration: float
 
 
+# Maps model size → approximate download size for the user-facing warning.
+_MODEL_SIZES = {
+    "tiny": "39 MB",
+    "base": "74 MB",
+    "small": "244 MB",
+    "medium": "769 MB",
+    "large-v3": "1.5 GB",
+}
+
+
+def _is_whisper_cached(model_size: str) -> bool:
+    """Return True if the faster-whisper model is already in the HF cache."""
+    try:
+        from huggingface_hub import try_to_load_from_cache
+        repo_id = f"Systran/faster-whisper-{model_size}"
+        result = try_to_load_from_cache(repo_id, "config.json")
+        return result is not None and result != "not in cache"
+    except Exception:
+        return True  # assume cached on any error to avoid false warnings
+
+
 class Transcriber:
     """Wraps Faster-Whisper for audio transcription.
 
@@ -35,12 +57,20 @@ class Transcriber:
 
     def _load(self) -> Any:
         if self._model is None:
+            if not _is_whisper_cached(self._model_size):
+                size_hint = _MODEL_SIZES.get(self._model_size, "unknown size")
+                print(
+                    f"[audio-lens] Downloading Whisper '{self._model_size}' model "
+                    f"({size_hint}) — this only happens once.",
+                    file=sys.stderr,
+                    flush=True,
+                )
             from faster_whisper import WhisperModel
             self._model = WhisperModel(self._model_size, device="cpu", compute_type="int8")
         return self._model
 
     def transcribe(self, audio_path: Path) -> TranscriptionResult:
-        """Transcribe an audio file. Raises ValueError for unsupported formats."""
+        """Transcribe an audio file."""
         if audio_path.suffix.lower() not in self.SUPPORTED_EXTENSIONS:
             raise ValueError(
                 f"Unsupported audio format: {audio_path.suffix}. "
