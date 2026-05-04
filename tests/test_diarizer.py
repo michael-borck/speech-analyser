@@ -22,20 +22,23 @@ class TestDiarizerImportGuard:
             with pytest.raises(AudioLensError):
                 d.diarize(tmp_path / "x.wav")
 
+    def test_raises_model_not_available_when_from_pretrained_fails(self, tmp_path):
+        d = Diarizer()
+        mock_pipeline_cls = MagicMock()
+        mock_pipeline_cls.from_pretrained.side_effect = RuntimeError("401 Unauthorized")
+        with patch.object(d, "_import_pipeline", return_value=mock_pipeline_cls):
+            with patch.object(d, "_resolve_token", return_value="fake-token"):
+                with patch("huggingface_hub.try_to_load_from_cache", return_value="/cache/path"):
+                    with pytest.raises(ModelNotAvailableError, match="Could not load"):
+                        d.diarize(tmp_path / "x.wav")
+
 
 class TestDiarizerNoToken:
-    def test_raises_when_no_token(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("HF_TOKEN", raising=False)
-        monkeypatch.delenv("HUGGING_FACE_HUB_TOKEN", raising=False)
-
+    def test_raises_when_no_token(self, tmp_path):
         mock_pipeline_cls = MagicMock()
         d = Diarizer()
         with patch.object(d, "_import_pipeline", return_value=mock_pipeline_cls):
-            with patch("audio_lens.diarizer.Path") as mock_path_cls:
-                # Make the token file appear not to exist
-                mock_token_file = MagicMock()
-                mock_token_file.exists.return_value = False
-                mock_path_cls.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_token_file
+            with patch.object(d, "_resolve_token", return_value=None):
                 with pytest.raises(ModelNotAvailableError, match="No Hugging Face token"):
                     d.diarize(tmp_path / "x.wav")
 
@@ -90,3 +93,22 @@ class TestDiarizerTurns:
         d._pipeline = MagicMock(side_effect=RuntimeError("CUDA error"))
         with pytest.raises(AudioLensError, match="Diarization failed"):
             d.diarize(silent_wav)
+
+    def test_pipeline_cached_after_first_load(self, silent_wav):
+        t = MagicMock(start=0.0, end=1.0)
+        mock_ann = MagicMock()
+        mock_ann.itertracks.return_value = [(t, None, "SPEAKER_00")]
+
+        d = Diarizer()
+        mock_pipeline_instance = MagicMock(return_value=mock_ann)
+
+        with patch.object(d, "_import_pipeline") as mock_import:
+            mock_import.return_value = MagicMock(
+                from_pretrained=MagicMock(return_value=mock_pipeline_instance)
+            )
+            with patch.object(d, "_resolve_token", return_value="fake-token"):
+                with patch("huggingface_hub.try_to_load_from_cache", return_value="/cache/path"):
+                    d.diarize(silent_wav)
+                    d.diarize(silent_wav)
+
+        mock_import.assert_called_once()  # _import_pipeline only called once

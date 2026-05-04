@@ -79,7 +79,7 @@ class Diarizer:
             pass
 
         try:
-            self._pipeline = Pipeline.from_pretrained(_MODEL_ID, use_auth_token=token)
+            self._pipeline = Pipeline.from_pretrained(_MODEL_ID, token=token)
         except Exception as e:
             raise ModelNotAvailableError(
                 f"Could not load diarization model: {e}. "
