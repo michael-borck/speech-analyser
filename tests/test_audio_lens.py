@@ -54,6 +54,33 @@ class TestAudioLensSilent:
         from audio_lens import ModelNotAvailableError  # noqa: F401
 
 
+class TestWhisperCache:
+    def test_returns_true_when_path_string_returned(self):
+        from audio_lens.transcriber import _is_whisper_cached
+        from unittest.mock import patch
+        with patch("huggingface_hub.try_to_load_from_cache", return_value="/cache/path/config.json"):
+            assert _is_whisper_cached("base") is True
+
+    def test_returns_false_when_none_returned(self):
+        from audio_lens.transcriber import _is_whisper_cached
+        from unittest.mock import patch
+        with patch("huggingface_hub.try_to_load_from_cache", return_value=None):
+            assert _is_whisper_cached("base") is False
+
+    def test_returns_false_for_object_sentinel(self):
+        from audio_lens.transcriber import _is_whisper_cached
+        from unittest.mock import patch
+        with patch("huggingface_hub.try_to_load_from_cache", return_value=object()):
+            assert _is_whisper_cached("base") is False
+
+    def test_returns_true_on_import_error(self):
+        from audio_lens.transcriber import _is_whisper_cached
+        from unittest.mock import patch
+        with patch("huggingface_hub.try_to_load_from_cache", side_effect=ImportError("no huggingface_hub")):
+            # ImportError is caught by the broad except, so should return True (assume cached)
+            assert _is_whisper_cached("base") is True
+
+
 class TestCLI:
     def test_analyse_unsupported_exits_1(self, tmp_path: Path):
         p = tmp_path / "file.xyz"

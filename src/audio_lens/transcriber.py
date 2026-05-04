@@ -23,9 +23,16 @@ class TranscriptionResult:
 # Maps model size → approximate download size for the user-facing warning.
 _MODEL_SIZES = {
     "tiny": "39 MB",
+    "tiny.en": "39 MB",
     "base": "74 MB",
+    "base.en": "74 MB",
     "small": "244 MB",
+    "small.en": "244 MB",
     "medium": "769 MB",
+    "medium.en": "769 MB",
+    "large": "1.5 GB",
+    "large-v1": "1.5 GB",
+    "large-v2": "1.5 GB",
     "large-v3": "1.5 GB",
 }
 
@@ -36,7 +43,7 @@ def _is_whisper_cached(model_size: str) -> bool:
         from huggingface_hub import try_to_load_from_cache
         repo_id = f"Systran/faster-whisper-{model_size}"
         result = try_to_load_from_cache(repo_id, "config.json")
-        return result is not None and result != "not in cache"
+        return isinstance(result, str)
     except Exception:
         return True  # assume cached on any error to avoid false warnings
 
