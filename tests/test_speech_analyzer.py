@@ -159,6 +159,11 @@ class TestSpeechAnalyzer:
         assert "you know" in m["filler_words_found"]
         assert m["filler_word_count"] >= 2
 
+    def test_empty_transcript_pace_category_is_unknown(self):
+        result = _make_result("", duration=10.0, segments=[])
+        m = SpeechAnalyzer().analyse(result)
+        assert m["pace_category"] == "unknown"
+
 
 class TestInsights:
     def test_high_filler_rate_observation(self):

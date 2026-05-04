@@ -194,16 +194,16 @@ class SpeechAnalyzer:
         filler_rate = round(filler_count / word_count, 4) if word_count > 0 else 0.0
 
         speaking_time = sum(s.end - s.start for s in result.segments)
-        silence_ratio = round(
+        silence_ratio = max(0.0, round(
             1.0 - (speaking_time / result.duration), 3
-        ) if result.duration > 0 else 0.0
+        )) if result.duration > 0 else 0.0
 
         avg_words_per_segment = (
             sum(len(s.text.split()) for s in result.segments) / len(result.segments)
             if result.segments else 0.0
         )
 
-        pace_cat = _pace_category(wpm) if wpm > 0 else "natural"
+        pace_cat = _pace_category(wpm) if wpm > 0 else "unknown"
 
         spk = speaker_data or []
         speaker_percentages = [s["percentage"] for s in spk]
