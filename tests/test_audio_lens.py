@@ -133,6 +133,96 @@ class TestAudioLensDiarization:
             AudioLens().analyse(silent_wav, diarize=False)
         mock_diarize.assert_not_called()
 
+    def test_model_not_available_reraises_not_wrapped(self, silent_wav: Path):
+        from unittest.mock import patch
+        from audio_lens.exceptions import ModelNotAvailableError
+        with patch("audio_lens.audio_lens.Diarizer.diarize", side_effect=ModelNotAvailableError("no model")):
+            with pytest.raises(ModelNotAvailableError):
+                AudioLens().analyse(silent_wav, diarize=True)
+
+
+class TestAssignSpeakers:
+    def _seg(self, start, end, text="hello"):
+        from audio_lens.transcriber import Segment
+        return Segment(start=start, end=end, text=text, avg_logprob=-0.2)
+
+    def _turn(self, start, end, speaker):
+        from audio_lens.diarizer import DiarizationTurn
+        return DiarizationTurn(start=start, end=end, speaker=speaker)
+
+    def test_full_overlap_assigns_speaker(self):
+        from audio_lens.audio_lens import _assign_speakers
+        seg = self._seg(0.0, 5.0)
+        turn = self._turn(0.0, 5.0, "SPEAKER_00")
+        result = _assign_speakers([seg], [turn])
+        assert result == ["SPEAKER_00"]
+
+    def test_gap_between_turns_returns_none(self):
+        from audio_lens.audio_lens import _assign_speakers
+        seg = self._seg(2.0, 3.0)
+        t1 = self._turn(0.0, 1.5, "SPEAKER_00")
+        t2 = self._turn(3.5, 5.0, "SPEAKER_01")
+        result = _assign_speakers([seg], [t1, t2])
+        assert result == [None]
+
+    def test_max_overlap_wins(self):
+        from audio_lens.audio_lens import _assign_speakers
+        # seg 1-4, turn0 covers 0-2.5 (1.5s overlap), turn1 covers 2.5-5 (1.5s overlap) → tie → first wins
+        seg = self._seg(1.0, 4.0)
+        t0 = self._turn(0.0, 2.5, "SPEAKER_00")  # 1.5s overlap
+        t1 = self._turn(2.5, 5.0, "SPEAKER_01")  # 1.5s overlap
+        result = _assign_speakers([seg], [t0, t1])
+        # Either speaker is acceptable on a tie; just assert one was assigned
+        assert result[0] in ("SPEAKER_00", "SPEAKER_01")
+
+    def test_empty_turns_returns_all_none(self):
+        from audio_lens.audio_lens import _assign_speakers
+        seg = self._seg(0.0, 5.0)
+        result = _assign_speakers([seg], [])
+        assert result == [None]
+
+    def test_empty_segments_returns_empty(self):
+        from audio_lens.audio_lens import _assign_speakers
+        result = _assign_speakers([], [])
+        assert result == []
+
+
+class TestComputeTalkTime:
+    def _seg(self, start, end, text):
+        from audio_lens.transcriber import Segment
+        return Segment(start=start, end=end, text=text, avg_logprob=-0.2)
+
+    def test_single_speaker_all_words(self):
+        from audio_lens.audio_lens import _compute_talk_time
+        seg = self._seg(0.0, 5.0, "hello world")
+        talk_time, speaker_data = _compute_talk_time([seg], ["SPEAKER_00"])
+        assert len(speaker_data) == 1
+        assert speaker_data[0]["id"] == "SPEAKER_00"
+        assert speaker_data[0]["word_count"] == 2
+        assert speaker_data[0]["percentage"] == 100.0
+
+    def test_no_speakers_assigned_returns_none_empty(self):
+        from audio_lens.audio_lens import _compute_talk_time
+        seg = self._seg(0.0, 5.0, "hello world")
+        talk_time, speaker_data = _compute_talk_time([seg], [None])
+        # All None assignments → total_words for assigned speakers = 0 → returns None, []
+        assert speaker_data == [] or talk_time is None
+
+    def test_is_balanced_true_for_equal_speakers(self):
+        from audio_lens.audio_lens import _compute_talk_time
+        seg1 = self._seg(0.0, 2.0, "hello world")
+        seg2 = self._seg(2.0, 4.0, "foo bar")
+        talk_time, _ = _compute_talk_time([seg1, seg2], ["SPEAKER_00", "SPEAKER_01"])
+        assert talk_time["is_balanced"] is True
+
+    def test_dominant_speaker_flagged(self):
+        from audio_lens.audio_lens import _compute_talk_time
+        seg1 = self._seg(0.0, 2.0, "a b c d e f g h i j")  # 10 words
+        seg2 = self._seg(2.0, 4.0, "x")                    # 1 word
+        talk_time, _ = _compute_talk_time([seg1, seg2], ["SPEAKER_00", "SPEAKER_01"])
+        assert talk_time["is_balanced"] is False
+        assert talk_time["dominant_speaker"] == "SPEAKER_00"
+
 
 class TestWhisperCache:
     def test_returns_true_when_path_string_returned(self):

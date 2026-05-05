@@ -35,6 +35,8 @@ def _compute_talk_time(
     duration. If segments yield no speaker data (e.g. silent audio), falls back to
     computing duration totals directly from diarization turns.
 
+    Note: percentages are rounded per-speaker (1 decimal place) and may not sum to exactly 100.0.
+
     Returns (talk_time dict, speaker_data list). Both are None/[] if no data available.
     """
     counts: dict[str, dict[str, Any]] = {}
