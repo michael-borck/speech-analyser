@@ -29,7 +29,8 @@ def main() -> None:
     analyse.add_argument(
         "--model",
         default=None,
-        choices=["tiny", "base", "small", "medium", "large-v3"],
+        choices=sorted(["tiny", "tiny.en", "base", "base.en", "small", "small.en",
+                        "medium", "medium.en", "large", "large-v1", "large-v2", "large-v3"]),
         help="Whisper model size (default: AUDIO_LENS_MODEL env var or 'base')",
     )
     analyse.add_argument(

@@ -10,10 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from .audio_lens import AudioLens
 from .exceptions import AudioLensError, ModelNotAvailableError
 from .schemas import AudioAnalysis, HealthResponse
+from .transcriber import SUPPORTED_MODELS
 
 _VERSION = "0.1.0"
 _START_TIME = time.time()
-_VALID_MODELS = {"tiny", "base", "small", "medium", "large-v3"}
 
 # Cache AudioLens instances by model size — model loading is expensive
 _lens_cache: dict[str, AudioLens] = {}
@@ -101,10 +101,10 @@ async def analyse(
 ) -> AudioAnalysis:
     model_size = model if model is not None else os.getenv("AUDIO_LENS_MODEL", "base")
 
-    if model_size not in _VALID_MODELS:
+    if model_size not in SUPPORTED_MODELS:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid model '{model_size}'. Must be one of: {', '.join(sorted(_VALID_MODELS))}",
+            detail=f"Invalid model '{model_size}'. Must be one of: {', '.join(sorted(SUPPORTED_MODELS))}",
         )
 
     # Respect env-var default for diarize if not explicitly passed

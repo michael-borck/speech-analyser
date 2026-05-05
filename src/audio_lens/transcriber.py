@@ -36,6 +36,8 @@ _MODEL_SIZES = {
     "large-v3": "1.5 GB",
 }
 
+SUPPORTED_MODELS: frozenset[str] = frozenset(_MODEL_SIZES.keys())
+
 
 def _is_whisper_cached(model_size: str) -> bool:
     """Return True if the faster-whisper model is already in the HF cache."""
