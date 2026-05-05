@@ -37,6 +37,11 @@ def main() -> None:
         dest="as_json",
         help="Output raw JSON",
     )
+    analyse.add_argument(
+        "--diarize",
+        action="store_true",
+        help="Run speaker diarization (requires audio-lens[diarization] and HF_TOKEN)",
+    )
 
     serve = sub.add_parser("serve", help="Start the FastAPI HTTP server")
     serve.add_argument(
@@ -66,13 +71,20 @@ def main() -> None:
 
 def _cmd_analyse(args) -> None:
     from .audio_lens import AudioLens
-    from .exceptions import AudioLensError
+    from .exceptions import AudioLensError, ModelNotAvailableError
 
     model = args.model if args.model is not None else os.getenv("AUDIO_LENS_MODEL", "base")
+    diarize = args.diarize or os.getenv("AUDIO_LENS_DIARIZE", "false").lower() == "true"
     lens = AudioLens(model_size=model)
 
     try:
-        result = lens.analyse(args.file)
+        result = lens.analyse(args.file, diarize=diarize)
+    except ModelNotAvailableError as e:
+        if args.as_json:
+            print(json.dumps({"error": str(e)}, indent=2), file=sys.stderr)
+        else:
+            print(f"Diarization unavailable: {e}", file=sys.stderr)
+        sys.exit(2)
     except AudioLensError as e:
         if args.as_json:
             print(json.dumps({"error": str(e)}, indent=2), file=sys.stderr)
@@ -87,11 +99,29 @@ def _cmd_analyse(args) -> None:
     print(f"Language:      {result['language']}")
     print(f"Duration:      {result['duration']:.1f}s")
     print(f"Words:         {result['speech_metrics']['word_count']}")
-    print(f"Speaking rate: {result['speech_metrics']['speaking_rate_wpm']} wpm")
-    print(f"Filler words:  {result['speech_metrics']['filler_word_count']}")
+    print(f"Speaking rate: {result['speech_metrics']['speaking_rate_wpm']} wpm "
+          f"({result['speech_metrics']['pace_category']})")
+    print(f"Filler words:  {result['speech_metrics']['filler_word_count']} "
+          f"({result['speech_metrics']['filler_word_rate']:.1%})")
     print(f"Silence ratio: {result['speech_metrics']['silence_ratio']:.1%}")
-    print()
-    print("Transcript:")
+    print(f"Quality score: {result['speech_metrics']['quality_score']}/100")
+
+    insights = result["speech_metrics"]["insights"]
+    if insights["strengths"]:
+        print(f"\nStrengths:")
+        for s in insights["strengths"]:
+            print(f"  • {s}")
+    if insights["observations"]:
+        print(f"\nObservations:")
+        for o in insights["observations"]:
+            print(f"  • {o}")
+
+    if result.get("speakers"):
+        print(f"\nSpeakers ({len(result['speakers'])}):")
+        for spk in result["speakers"]:
+            print(f"  {spk['id']}: {spk['percentage']:.0f}% ({spk['word_count']} words)")
+
+    print(f"\nTranscript:")
     print(result["transcript"])
 
 

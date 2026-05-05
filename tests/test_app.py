@@ -13,16 +13,27 @@ _FAKE_ANALYSIS = {
     "transcript": "hello world",
     "language": "en",
     "duration": 5.0,
-    "segments": [{"start": 0.0, "end": 5.0, "text": "hello world"}],
+    "segments": [{"start": 0.0, "end": 5.0, "text": "hello world", "speaker": None}],
     "speech_metrics": {
         "word_count": 2,
         "speaking_rate_wpm": 24.0,
+        "pace_category": "slow",
         "filler_word_count": 0,
         "filler_word_rate": 0.0,
         "filler_words_found": [],
         "silence_ratio": 0.0,
         "actual_speaking_time": 5.0,
+        "quality_score": 62,
+        "quality_factors": {"clarity": 25, "depth": 5, "balance": 18, "pace": 14},
+        "quality_ratings": {"clarity": "excellent", "depth": "low", "balance": "good", "pace": "fair"},
+        "insights": {
+            "strengths": ["Very few filler words — speech is clear"],
+            "observations": [],
+        },
     },
+    "diarization_available": False,
+    "speakers": None,
+    "talk_time": None,
     "file_path": "/tmp/test.wav",
     "file_size": 1234,
 }
@@ -95,3 +106,29 @@ class TestAnalyseEndpoint:
             ).json()
         assert "success" not in data
         assert "error" not in data
+
+
+class TestDiarizeEndpoint:
+    def test_diarize_param_accepted(self, silent_wav_bytes: bytes):
+        with patch("audio_lens.app._get_lens") as mock_get_lens:
+            mock_get_lens.return_value.analyse.return_value = _FAKE_ANALYSIS.copy()
+            response = client.post(
+                "/analyse",
+                files={"file": ("test.wav", silent_wav_bytes, "audio/wav")},
+                data={"diarize": "false"},
+            )
+        assert response.status_code == 200
+
+    def test_diarize_model_unavailable_returns_503(self, silent_wav_bytes: bytes):
+        from audio_lens.exceptions import ModelNotAvailableError
+        with patch("audio_lens.app._get_lens") as mock_get_lens:
+            mock_get_lens.return_value.analyse.side_effect = ModelNotAvailableError(
+                "pyannote.audio is not installed"
+            )
+            response = client.post(
+                "/analyse",
+                files={"file": ("test.wav", silent_wav_bytes, "audio/wav")},
+                data={"diarize": "true"},
+            )
+        assert response.status_code == 503
+        assert "pyannote" in response.json()["detail"]

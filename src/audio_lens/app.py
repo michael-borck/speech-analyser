@@ -8,7 +8,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .audio_lens import AudioLens
-from .exceptions import AudioLensError
+from .exceptions import AudioLensError, ModelNotAvailableError
 from .schemas import AudioAnalysis, HealthResponse
 
 _VERSION = "0.1.0"
@@ -94,6 +94,10 @@ async def health() -> HealthResponse:
 async def analyse(
     file: UploadFile = File(..., description="Audio file to analyse"),
     model: str | None = Form(default=None, description="Whisper model size (optional)"),
+    diarize: bool = Form(
+        default=False,
+        description="Run speaker diarization (requires audio-lens[diarization] and HF_TOKEN)",
+    ),
 ) -> AudioAnalysis:
     model_size = model if model is not None else os.getenv("AUDIO_LENS_MODEL", "base")
 
@@ -103,6 +107,10 @@ async def analyse(
             detail=f"Invalid model '{model_size}'. Must be one of: {', '.join(sorted(_VALID_MODELS))}",
         )
 
+    # Respect env-var default for diarize if not explicitly passed
+    if not diarize:
+        diarize = os.getenv("AUDIO_LENS_DIARIZE", "false").lower() == "true"
+
     suffix = Path(file.filename or "upload").suffix or ".wav"
     content = await file.read()
 
@@ -111,8 +119,10 @@ async def analyse(
         tmp_path = Path(tmp.name)
 
     try:
-        data = _get_lens(model_size).analyse(tmp_path)
+        data = _get_lens(model_size).analyse(tmp_path, diarize=diarize)
         return AudioAnalysis(**data)
+    except ModelNotAvailableError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except AudioLensError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
