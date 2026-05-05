@@ -4,6 +4,7 @@ Usage:
   audiolens analyse recording.mp3
   audiolens analyse recording.wav --model small
   audiolens analyse recording.m4a --json
+  audiolens analyse recording.wav --diarize   # requires audio-lens[diarization] and HF_TOKEN
   audiolens serve
   audiolens serve --port 8001 --host 0.0.0.0
 """
@@ -108,11 +109,11 @@ def _cmd_analyse(args) -> None:
 
     insights = result["speech_metrics"]["insights"]
     if insights["strengths"]:
-        print(f"\nStrengths:")
+        print("\nStrengths:")
         for s in insights["strengths"]:
             print(f"  • {s}")
     if insights["observations"]:
-        print(f"\nObservations:")
+        print("\nObservations:")
         for o in insights["observations"]:
             print(f"  • {o}")
 
@@ -121,7 +122,7 @@ def _cmd_analyse(args) -> None:
         for spk in result["speakers"]:
             print(f"  {spk['id']}: {spk['percentage']:.0f}% ({spk['word_count']} words)")
 
-    print(f"\nTranscript:")
+    print("\nTranscript:")
     print(result["transcript"])
 
 

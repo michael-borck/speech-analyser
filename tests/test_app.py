@@ -118,6 +118,23 @@ class TestDiarizeEndpoint:
                 data={"diarize": "false"},
             )
         assert response.status_code == 200
+        mock_get_lens.return_value.analyse.assert_called_once()
+        call_kwargs = mock_get_lens.return_value.analyse.call_args
+        assert call_kwargs.kwargs.get("diarize") is False or call_kwargs.args[1] is False
+
+    def test_diarize_env_var_default(self, silent_wav_bytes: bytes, monkeypatch):
+        monkeypatch.setenv("AUDIO_LENS_DIARIZE", "true")
+        with patch("audio_lens.app._get_lens") as mock_get_lens:
+            mock_get_lens.return_value.analyse.return_value = _FAKE_ANALYSIS.copy()
+            response = client.post(
+                "/analyse",
+                files={"file": ("test.wav", silent_wav_bytes, "audio/wav")},
+            )
+        assert response.status_code == 200
+        call_kwargs = mock_get_lens.return_value.analyse.call_args
+        # When AUDIO_LENS_DIARIZE=true and diarize not sent, diarize should be True
+        diarize_value = call_kwargs.kwargs.get("diarize", call_kwargs.args[1] if len(call_kwargs.args) > 1 else None)
+        assert diarize_value is True
 
     def test_diarize_model_unavailable_returns_503(self, silent_wav_bytes: bytes):
         from audio_lens.exceptions import ModelNotAvailableError
