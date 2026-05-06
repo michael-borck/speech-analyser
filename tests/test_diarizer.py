@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from audio_lens.diarizer import Diarizer, DiarizationTurn
-from audio_lens.exceptions import AudioLensError, ModelNotAvailableError
+from speech_analyser.diarizer import Diarizer, DiarizationTurn
+from speech_analyser.exceptions import AudioLensError, ModelNotAvailableError
 
 
 class TestDiarizerImportGuard:

@@ -1,7 +1,7 @@
 """Unit tests for SpeechAnalyzer — no audio files needed."""
 
-from audio_lens.speech_analyzer import SpeechAnalyzer, _detect_fillers, _pace_category, _quality_score, _insights
-from audio_lens.transcriber import Segment, TranscriptionResult
+from speech_analyser.speech_analyzer import SpeechAnalyzer, _detect_fillers, _pace_category, _quality_score, _insights
+from speech_analyser.transcriber import Segment, TranscriptionResult
 
 
 def _make_result(text: str, duration: float, segments=None) -> TranscriptionResult:

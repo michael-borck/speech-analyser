@@ -1,12 +1,12 @@
-"""CLI entry point for audio-lens.
+"""CLI entry point for speech-analyser.
 
 Usage:
-  audiolens analyse recording.mp3
-  audiolens analyse recording.wav --model small
-  audiolens analyse recording.m4a --json
-  audiolens analyse recording.wav --diarize   # requires audio-lens[diarization] and HF_TOKEN
-  audiolens serve
-  audiolens serve --port 8001 --host 0.0.0.0
+  speech-analyser recording.mp3
+  speech-analyser recording.wav --model small
+  speech-analyser recording.m4a --json
+  speech-analyser interview.mp4 --diarize
+  speech-analyser serve
+  speech-analyser serve --port 8001 --host 0.0.0.0
 """
 
 import json
@@ -18,61 +18,42 @@ from pathlib import Path
 def main() -> None:
     import argparse
 
+    if len(sys.argv) > 1 and sys.argv[1] == "serve":
+        _main_serve(sys.argv[2:])
+        return
+
     parser = argparse.ArgumentParser(
-        prog="audio-lens",
+        prog="speech-analyser",
         description="Audio transcription and speech analysis",
     )
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    analyse = sub.add_parser("analyse", help="Analyse an audio file")
-    analyse.add_argument("file", type=Path, help="Path to audio file")
-    analyse.add_argument(
+    parser.add_argument("file", type=Path, help="Audio or video file to analyse")
+    parser.add_argument(
         "--model",
         default=None,
         choices=sorted(["tiny", "tiny.en", "base", "base.en", "small", "small.en",
                         "medium", "medium.en", "large", "large-v1", "large-v2", "large-v3"]),
         help="Whisper model size (default: AUDIO_LENS_MODEL env var or 'base')",
     )
-    analyse.add_argument(
-        "--json",
-        action="store_true",
-        dest="as_json",
-        help="Output raw JSON",
-    )
-    analyse.add_argument(
+    parser.add_argument("--json", action="store_true", dest="as_json", help="Output raw JSON")
+    parser.add_argument(
         "--diarize",
         action="store_true",
-        help="Run speaker diarization (requires audio-lens[diarization] and HF_TOKEN)",
+        help="Run speaker diarization (requires speech-analyser[diarization] and HF_TOKEN)",
     )
+    _cmd_analyse(parser.parse_args())
 
-    serve = sub.add_parser("serve", help="Start the FastAPI HTTP server")
-    serve.add_argument(
-        "--port",
-        type=int,
-        default=int(os.getenv("AUDIO_LENS_PORT", "8001")),
-        help="Port to listen on (default: AUDIO_LENS_PORT or 8001)",
-    )
-    serve.add_argument(
-        "--host",
-        default=os.getenv("AUDIO_LENS_HOST", "127.0.0.1"),
-        help="Host to bind (default: AUDIO_LENS_HOST or 127.0.0.1)",
-    )
-    serve.add_argument(
-        "--reload",
-        action="store_true",
-        help="Enable auto-reload (development only)",
-    )
 
-    args = parser.parse_args()
-
-    if args.command == "analyse":
-        _cmd_analyse(args)
-    elif args.command == "serve":
-        _cmd_serve(args)
+def _main_serve(argv: list[str]) -> None:
+    import argparse
+    parser = argparse.ArgumentParser(prog="speech-analyser serve", description="Start the HTTP server")
+    parser.add_argument("--port", type=int, default=int(os.getenv("AUDIO_LENS_PORT", "8001")))
+    parser.add_argument("--host", default=os.getenv("AUDIO_LENS_HOST", "127.0.0.1"))
+    parser.add_argument("--reload", action="store_true", help="Enable auto-reload (development only)")
+    _cmd_serve(parser.parse_args(argv))
 
 
 def _cmd_analyse(args) -> None:
-    from .audio_lens import AudioLens
+    from .speech_analyser import AudioLens
     from .exceptions import AudioLensError, ModelNotAvailableError
 
     model = args.model if args.model is not None else os.getenv("AUDIO_LENS_MODEL", "base")
@@ -130,7 +111,7 @@ def _cmd_analyse(args) -> None:
 def _cmd_serve(args) -> None:
     import uvicorn
     uvicorn.run(
-        "audio_lens.app:app",
+        "speech_analyser.app:app",
         host=args.host,
         port=args.port,
         reload=args.reload,

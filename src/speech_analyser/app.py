@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from .audio_lens import AudioLens
+from .speech_analyser import AudioLens
 from .exceptions import AudioLensError, ModelNotAvailableError
 from .schemas import AudioAnalysis, HealthResponse
 from .transcriber import SUPPORTED_MODELS

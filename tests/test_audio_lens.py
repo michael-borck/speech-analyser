@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from audio_lens import AudioLens
-from audio_lens.exceptions import AudioLensError
+from speech_analyser import AudioLens
+from speech_analyser.exceptions import AudioLensError
 
 
 class TestAudioLensSilent:
@@ -47,11 +47,11 @@ class TestAudioLensSilent:
         assert "data" not in result
 
     def test_model_not_available_is_subclass_of_audio_lens_error(self):
-        from audio_lens.exceptions import ModelNotAvailableError, AudioLensError
+        from speech_analyser.exceptions import ModelNotAvailableError, AudioLensError
         assert issubclass(ModelNotAvailableError, AudioLensError)
 
     def test_model_not_available_exported_from_package(self):
-        from audio_lens import ModelNotAvailableError  # noqa: F401
+        from speech_analyser import ModelNotAvailableError  # noqa: F401
 
     def test_success_shape_has_diarization_keys(self, silent_wav: Path):
         lens = AudioLens()
@@ -86,12 +86,12 @@ class TestAudioLensSilent:
 class TestAudioLensDiarization:
     def test_diarize_flag_populates_speakers(self, silent_wav: Path):
         from unittest.mock import patch
-        from audio_lens.diarizer import DiarizationTurn
+        from speech_analyser.diarizer import DiarizationTurn
 
         fake_turns = [
             DiarizationTurn(start=0.0, end=0.5, speaker="SPEAKER_00"),
         ]
-        with patch("audio_lens.audio_lens.Diarizer.diarize", return_value=fake_turns):
+        with patch("speech_analyser.speech_analyser.Diarizer.diarize", return_value=fake_turns):
             result = AudioLens().analyse(silent_wav, diarize=True)
 
         assert result["diarization_available"] is True
@@ -101,12 +101,12 @@ class TestAudioLensDiarization:
 
     def test_diarize_assigns_speaker_to_segments(self, silent_wav: Path):
         from unittest.mock import patch
-        from audio_lens.diarizer import DiarizationTurn
+        from speech_analyser.diarizer import DiarizationTurn
 
         fake_turns = [
             DiarizationTurn(start=0.0, end=10.0, speaker="SPEAKER_00"),
         ]
-        with patch("audio_lens.audio_lens.Diarizer.diarize", return_value=fake_turns):
+        with patch("speech_analyser.speech_analyser.Diarizer.diarize", return_value=fake_turns):
             result = AudioLens().analyse(silent_wav, diarize=True)
 
         # All segments should be assigned to SPEAKER_00 (covers the whole file)
@@ -116,12 +116,12 @@ class TestAudioLensDiarization:
 
     def test_diarize_talk_time_populated(self, silent_wav: Path):
         from unittest.mock import patch
-        from audio_lens.diarizer import DiarizationTurn
+        from speech_analyser.diarizer import DiarizationTurn
 
         fake_turns = [
             DiarizationTurn(start=0.0, end=0.5, speaker="SPEAKER_00"),
         ]
-        with patch("audio_lens.audio_lens.Diarizer.diarize", return_value=fake_turns):
+        with patch("speech_analyser.speech_analyser.Diarizer.diarize", return_value=fake_turns):
             result = AudioLens().analyse(silent_wav, diarize=True)
 
         assert result["talk_time"] is not None
@@ -129,36 +129,36 @@ class TestAudioLensDiarization:
 
     def test_diarize_false_skips_diarizer(self, silent_wav: Path):
         from unittest.mock import patch
-        with patch("audio_lens.audio_lens.Diarizer.diarize") as mock_diarize:
+        with patch("speech_analyser.speech_analyser.Diarizer.diarize") as mock_diarize:
             AudioLens().analyse(silent_wav, diarize=False)
         mock_diarize.assert_not_called()
 
     def test_model_not_available_reraises_not_wrapped(self, silent_wav: Path):
         from unittest.mock import patch
-        from audio_lens.exceptions import ModelNotAvailableError
-        with patch("audio_lens.audio_lens.Diarizer.diarize", side_effect=ModelNotAvailableError("no model")):
+        from speech_analyser.exceptions import ModelNotAvailableError
+        with patch("speech_analyser.speech_analyser.Diarizer.diarize", side_effect=ModelNotAvailableError("no model")):
             with pytest.raises(ModelNotAvailableError):
                 AudioLens().analyse(silent_wav, diarize=True)
 
 
 class TestAssignSpeakers:
     def _seg(self, start, end, text="hello"):
-        from audio_lens.transcriber import Segment
+        from speech_analyser.transcriber import Segment
         return Segment(start=start, end=end, text=text, avg_logprob=-0.2)
 
     def _turn(self, start, end, speaker):
-        from audio_lens.diarizer import DiarizationTurn
+        from speech_analyser.diarizer import DiarizationTurn
         return DiarizationTurn(start=start, end=end, speaker=speaker)
 
     def test_full_overlap_assigns_speaker(self):
-        from audio_lens.audio_lens import _assign_speakers
+        from speech_analyser.speech_analyser import _assign_speakers
         seg = self._seg(0.0, 5.0)
         turn = self._turn(0.0, 5.0, "SPEAKER_00")
         result = _assign_speakers([seg], [turn])
         assert result == ["SPEAKER_00"]
 
     def test_gap_between_turns_returns_none(self):
-        from audio_lens.audio_lens import _assign_speakers
+        from speech_analyser.speech_analyser import _assign_speakers
         seg = self._seg(2.0, 3.0)
         t1 = self._turn(0.0, 1.5, "SPEAKER_00")
         t2 = self._turn(3.5, 5.0, "SPEAKER_01")
@@ -166,7 +166,7 @@ class TestAssignSpeakers:
         assert result == [None]
 
     def test_max_overlap_wins(self):
-        from audio_lens.audio_lens import _assign_speakers
+        from speech_analyser.speech_analyser import _assign_speakers
         # seg 1-4, turn0 covers 0-2.5 (1.5s overlap), turn1 covers 2.5-5 (1.5s overlap) → tie → first wins
         seg = self._seg(1.0, 4.0)
         t0 = self._turn(0.0, 2.5, "SPEAKER_00")  # 1.5s overlap
@@ -176,24 +176,24 @@ class TestAssignSpeakers:
         assert result[0] in ("SPEAKER_00", "SPEAKER_01")
 
     def test_empty_turns_returns_all_none(self):
-        from audio_lens.audio_lens import _assign_speakers
+        from speech_analyser.speech_analyser import _assign_speakers
         seg = self._seg(0.0, 5.0)
         result = _assign_speakers([seg], [])
         assert result == [None]
 
     def test_empty_segments_returns_empty(self):
-        from audio_lens.audio_lens import _assign_speakers
+        from speech_analyser.speech_analyser import _assign_speakers
         result = _assign_speakers([], [])
         assert result == []
 
 
 class TestComputeTalkTime:
     def _seg(self, start, end, text):
-        from audio_lens.transcriber import Segment
+        from speech_analyser.transcriber import Segment
         return Segment(start=start, end=end, text=text, avg_logprob=-0.2)
 
     def test_single_speaker_all_words(self):
-        from audio_lens.audio_lens import _compute_talk_time
+        from speech_analyser.speech_analyser import _compute_talk_time
         seg = self._seg(0.0, 5.0, "hello world")
         talk_time, speaker_data = _compute_talk_time([seg], ["SPEAKER_00"])
         assert len(speaker_data) == 1
@@ -202,21 +202,21 @@ class TestComputeTalkTime:
         assert speaker_data[0]["percentage"] == 100.0
 
     def test_no_speakers_assigned_returns_none_empty(self):
-        from audio_lens.audio_lens import _compute_talk_time
+        from speech_analyser.speech_analyser import _compute_talk_time
         seg = self._seg(0.0, 5.0, "hello world")
         talk_time, speaker_data = _compute_talk_time([seg], [None])
         # All None assignments → total_words for assigned speakers = 0 → returns None, []
         assert speaker_data == [] or talk_time is None
 
     def test_is_balanced_true_for_equal_speakers(self):
-        from audio_lens.audio_lens import _compute_talk_time
+        from speech_analyser.speech_analyser import _compute_talk_time
         seg1 = self._seg(0.0, 2.0, "hello world")
         seg2 = self._seg(2.0, 4.0, "foo bar")
         talk_time, _ = _compute_talk_time([seg1, seg2], ["SPEAKER_00", "SPEAKER_01"])
         assert talk_time["is_balanced"] is True
 
     def test_dominant_speaker_flagged(self):
-        from audio_lens.audio_lens import _compute_talk_time
+        from speech_analyser.speech_analyser import _compute_talk_time
         seg1 = self._seg(0.0, 2.0, "a b c d e f g h i j")  # 10 words
         seg2 = self._seg(2.0, 4.0, "x")                    # 1 word
         talk_time, _ = _compute_talk_time([seg1, seg2], ["SPEAKER_00", "SPEAKER_01"])
@@ -226,25 +226,25 @@ class TestComputeTalkTime:
 
 class TestWhisperCache:
     def test_returns_true_when_path_string_returned(self):
-        from audio_lens.transcriber import _is_whisper_cached
+        from speech_analyser.transcriber import _is_whisper_cached
         from unittest.mock import patch
         with patch("huggingface_hub.try_to_load_from_cache", return_value="/cache/path/config.json"):
             assert _is_whisper_cached("base") is True
 
     def test_returns_false_when_none_returned(self):
-        from audio_lens.transcriber import _is_whisper_cached
+        from speech_analyser.transcriber import _is_whisper_cached
         from unittest.mock import patch
         with patch("huggingface_hub.try_to_load_from_cache", return_value=None):
             assert _is_whisper_cached("base") is False
 
     def test_returns_false_for_object_sentinel(self):
-        from audio_lens.transcriber import _is_whisper_cached
+        from speech_analyser.transcriber import _is_whisper_cached
         from unittest.mock import patch
         with patch("huggingface_hub.try_to_load_from_cache", return_value=object()):
             assert _is_whisper_cached("base") is False
 
     def test_returns_true_on_import_error(self):
-        from audio_lens.transcriber import _is_whisper_cached
+        from speech_analyser.transcriber import _is_whisper_cached
         from unittest.mock import patch
         with patch("huggingface_hub.try_to_load_from_cache", side_effect=ImportError("no huggingface_hub")):
             # ImportError is caught by the broad except, so should return True (assume cached)
@@ -256,7 +256,7 @@ class TestCLI:
         p = tmp_path / "file.xyz"
         p.write_bytes(b"data")
         proc = subprocess.run(
-            [sys.executable, "-m", "audio_lens.cli", "analyse", str(p), "--json"],
+            [sys.executable, "-m", "speech_analyser.cli", "analyse", str(p), "--json"],
             capture_output=True, text=True,
         )
         assert proc.returncode == 1
@@ -266,7 +266,7 @@ class TestCLI:
 
     def test_serve_help(self):
         proc = subprocess.run(
-            [sys.executable, "-m", "audio_lens.cli", "serve", "--help"],
+            [sys.executable, "-m", "speech_analyser.cli", "serve", "--help"],
             capture_output=True, text=True,
         )
         assert proc.returncode == 0
