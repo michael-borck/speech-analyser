@@ -44,9 +44,10 @@ class TestHealthEndpoint:
         assert client.get("/health").status_code == 200
 
     def test_has_required_fields(self):
+        from importlib.metadata import version
         data = client.get("/health").json()
-        assert data["status"] == "healthy"
-        assert data["version"] == "0.1.0"
+        assert data["status"] == "ok"
+        assert data["version"] == version("speech-analyser")
         assert isinstance(data["uptime"], float)
 
 
@@ -123,7 +124,7 @@ class TestDiarizeEndpoint:
         assert call_kwargs.kwargs.get("diarize") is False or call_kwargs.args[1] is False
 
     def test_diarize_env_var_default(self, silent_wav_bytes: bytes, monkeypatch):
-        monkeypatch.setenv("AUDIO_LENS_DIARIZE", "true")
+        monkeypatch.setenv("SPEECH_ANALYSER_DIARIZE", "true")
         with patch("speech_analyser.app._get_lens") as mock_get_lens:
             mock_get_lens.return_value.analyse.return_value = _FAKE_ANALYSIS.copy()
             response = client.post(
@@ -132,7 +133,7 @@ class TestDiarizeEndpoint:
             )
         assert response.status_code == 200
         call_kwargs = mock_get_lens.return_value.analyse.call_args
-        # When AUDIO_LENS_DIARIZE=true and diarize not sent, diarize should be True
+        # When SPEECH_ANALYSER_DIARIZE=true and diarize not sent, diarize should be True
         diarize_value = call_kwargs.kwargs.get("diarize", call_kwargs.args[1] if len(call_kwargs.args) > 1 else None)
         assert diarize_value is True
 

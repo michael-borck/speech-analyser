@@ -1,6 +1,7 @@
 import os
 import tempfile
 import time
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,9 @@ from .exceptions import SpeechAnalyserError, ModelNotAvailableError
 from .schemas import AudioAnalysis, HealthResponse
 from .transcriber import SUPPORTED_MODELS
 
-_VERSION = "0.1.0"
+# Sourced from pyproject.toml at install time so the FastAPI service version
+# always matches the installed package — no manual sync required.
+_VERSION = version("speech-analyser")
 _START_TIME = time.time()
 
 # Cache SpeechAnalyser instances by model size — model loading is expensive
@@ -34,7 +37,7 @@ app = FastAPI(
 )
 
 # CORS — desktop mode allows any localhost origin (for Electron)
-if os.getenv("AUDIO_LENS_MODE") == "desktop":
+if os.getenv("SPEECH_ANALYSER_MODE") == "desktop":
     app.add_middleware(
         CORSMiddleware,
         allow_origin_regex=(
@@ -49,7 +52,7 @@ if os.getenv("AUDIO_LENS_MODE") == "desktop":
     )
 else:
     _origins = os.getenv(
-        "AUDIO_LENS_ALLOWED_ORIGINS",
+        "SPEECH_ANALYSER_ALLOWED_ORIGINS",
         "http://localhost:3000,http://localhost:5173",
     ).split(",")
     app.add_middleware(
@@ -60,8 +63,8 @@ else:
         allow_headers=["*"],
     )
 
-# Optional rate limiting — off by default, enable with AUDIO_LENS_RATE_LIMIT_ENABLED=true
-if os.getenv("AUDIO_LENS_RATE_LIMIT_ENABLED", "false").lower() == "true":
+# Optional rate limiting — off by default, enable with SPEECH_ANALYSER_RATE_LIMIT_ENABLED=true
+if os.getenv("SPEECH_ANALYSER_RATE_LIMIT_ENABLED", "false").lower() == "true":
     from slowapi import Limiter, _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
     from slowapi.util import get_remote_address
@@ -84,7 +87,7 @@ async def root() -> dict[str, Any]:
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     return HealthResponse(
-        status="healthy",
+        status="ok",
         version=_VERSION,
         uptime=round(time.time() - _START_TIME, 1),
     )
@@ -99,7 +102,7 @@ async def analyse(
         description="Run speaker diarization (requires speech-analyser[diarization] and HF_TOKEN)",
     ),
 ) -> AudioAnalysis:
-    model_size = model if model is not None else os.getenv("AUDIO_LENS_MODEL", "base")
+    model_size = model if model is not None else os.getenv("SPEECH_ANALYSER_MODEL", "base")
 
     if model_size not in SUPPORTED_MODELS:
         raise HTTPException(
@@ -109,7 +112,7 @@ async def analyse(
 
     # Respect env-var default for diarize if not explicitly passed
     if not diarize:
-        diarize = os.getenv("AUDIO_LENS_DIARIZE", "false").lower() == "true"
+        diarize = os.getenv("SPEECH_ANALYSER_DIARIZE", "false").lower() == "true"
 
     suffix = Path(file.filename or "upload").suffix or ".wav"
     content = await file.read()

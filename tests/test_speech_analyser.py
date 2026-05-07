@@ -256,7 +256,7 @@ class TestCLI:
         p = tmp_path / "file.xyz"
         p.write_bytes(b"data")
         proc = subprocess.run(
-            [sys.executable, "-m", "speech_analyser.cli", "analyse", str(p), "--json"],
+            [sys.executable, "-m", "speech_analyser.cli", str(p), "--json"],
             capture_output=True, text=True,
         )
         assert proc.returncode == 1

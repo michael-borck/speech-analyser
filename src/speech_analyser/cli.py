@@ -32,7 +32,7 @@ def main() -> None:
         default=None,
         choices=sorted(["tiny", "tiny.en", "base", "base.en", "small", "small.en",
                         "medium", "medium.en", "large", "large-v1", "large-v2", "large-v3"]),
-        help="Whisper model size (default: AUDIO_LENS_MODEL env var or 'base')",
+        help="Whisper model size (default: SPEECH_ANALYSER_MODEL env var or 'base')",
     )
     parser.add_argument("--json", action="store_true", dest="as_json", help="Output raw JSON")
     parser.add_argument(
@@ -46,8 +46,8 @@ def main() -> None:
 def _main_serve(argv: list[str]) -> None:
     import argparse
     parser = argparse.ArgumentParser(prog="speech-analyser serve", description="Start the HTTP server")
-    parser.add_argument("--port", type=int, default=int(os.getenv("AUDIO_LENS_PORT", "8001")))
-    parser.add_argument("--host", default=os.getenv("AUDIO_LENS_HOST", "127.0.0.1"))
+    parser.add_argument("--port", type=int, default=int(os.getenv("SPEECH_ANALYSER_PORT", "8001")))
+    parser.add_argument("--host", default=os.getenv("SPEECH_ANALYSER_HOST", "127.0.0.1"))
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload (development only)")
     _cmd_serve(parser.parse_args(argv))
 
@@ -56,8 +56,8 @@ def _cmd_analyse(args) -> None:
     from .speech_analyser import SpeechAnalyser
     from .exceptions import SpeechAnalyserError, ModelNotAvailableError
 
-    model = args.model if args.model is not None else os.getenv("AUDIO_LENS_MODEL", "base")
-    diarize = args.diarize or os.getenv("AUDIO_LENS_DIARIZE", "false").lower() == "true"
+    model = args.model if args.model is not None else os.getenv("SPEECH_ANALYSER_MODEL", "base")
+    diarize = args.diarize or os.getenv("SPEECH_ANALYSER_DIARIZE", "false").lower() == "true"
     lens = SpeechAnalyser(model_size=model)
 
     try:
