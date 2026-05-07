@@ -1,4 +1,4 @@
-"""Integration tests for AudioLens."""
+"""Integration tests for SpeechAnalyser."""
 
 import json
 import subprocess
@@ -7,25 +7,25 @@ from pathlib import Path
 
 import pytest
 
-from speech_analyser import AudioLens
+from speech_analyser import SpeechAnalyser
 from speech_analyser.exceptions import AudioLensError
 
 
-class TestAudioLensSilent:
+class TestSpeechAnalyserSilent:
     def test_unsupported_format_raises(self, tmp_path: Path):
-        lens = AudioLens()
+        lens = SpeechAnalyser()
         p = tmp_path / "file.xyz"
         p.write_bytes(b"not audio")
         with pytest.raises(AudioLensError, match="Unsupported"):
             lens.analyse(p)
 
     def test_missing_file_raises(self, tmp_path: Path):
-        lens = AudioLens()
+        lens = SpeechAnalyser()
         with pytest.raises(AudioLensError, match="not found"):
             lens.analyse(tmp_path / "missing.wav")
 
     def test_string_path_accepted(self, tmp_path: Path):
-        lens = AudioLens()
+        lens = SpeechAnalyser()
         p = tmp_path / "file.xyz"
         p.write_bytes(b"not audio")
         with pytest.raises(AudioLensError, match="Unsupported"):
@@ -33,7 +33,7 @@ class TestAudioLensSilent:
 
     def test_success_shape(self, silent_wav: Path):
         """Full transcription of silent audio — requires faster-whisper installed."""
-        lens = AudioLens()
+        lens = SpeechAnalyser()
         result = lens.analyse(silent_wav)
         assert "transcript" in result
         assert "language" in result
@@ -54,7 +54,7 @@ class TestAudioLensSilent:
         from speech_analyser import ModelNotAvailableError  # noqa: F401
 
     def test_success_shape_has_diarization_keys(self, silent_wav: Path):
-        lens = AudioLens()
+        lens = SpeechAnalyser()
         result = lens.analyse(silent_wav)
         assert "diarization_available" in result
         assert "speakers" in result
@@ -64,14 +64,14 @@ class TestAudioLensSilent:
         assert result["talk_time"] is None
 
     def test_segments_have_speaker_key(self, silent_wav: Path):
-        lens = AudioLens()
+        lens = SpeechAnalyser()
         result = lens.analyse(silent_wav)
         for seg in result["segments"]:
             assert "speaker" in seg
             assert seg["speaker"] is None  # no diarization
 
     def test_speech_metrics_has_new_fields(self, silent_wav: Path):
-        lens = AudioLens()
+        lens = SpeechAnalyser()
         result = lens.analyse(silent_wav)
         m = result["speech_metrics"]
         assert "pace_category" in m
@@ -83,7 +83,7 @@ class TestAudioLensSilent:
         assert 0 <= m["quality_score"] <= 100
 
 
-class TestAudioLensDiarization:
+class TestSpeechAnalyserDiarization:
     def test_diarize_flag_populates_speakers(self, silent_wav: Path):
         from unittest.mock import patch
         from speech_analyser.diarizer import DiarizationTurn
@@ -92,7 +92,7 @@ class TestAudioLensDiarization:
             DiarizationTurn(start=0.0, end=0.5, speaker="SPEAKER_00"),
         ]
         with patch("speech_analyser.speech_analyser.Diarizer.diarize", return_value=fake_turns):
-            result = AudioLens().analyse(silent_wav, diarize=True)
+            result = SpeechAnalyser().analyse(silent_wav, diarize=True)
 
         assert result["diarization_available"] is True
         assert result["speakers"] is not None
@@ -107,7 +107,7 @@ class TestAudioLensDiarization:
             DiarizationTurn(start=0.0, end=10.0, speaker="SPEAKER_00"),
         ]
         with patch("speech_analyser.speech_analyser.Diarizer.diarize", return_value=fake_turns):
-            result = AudioLens().analyse(silent_wav, diarize=True)
+            result = SpeechAnalyser().analyse(silent_wav, diarize=True)
 
         # All segments should be assigned to SPEAKER_00 (covers the whole file)
         for seg in result["segments"]:
@@ -122,7 +122,7 @@ class TestAudioLensDiarization:
             DiarizationTurn(start=0.0, end=0.5, speaker="SPEAKER_00"),
         ]
         with patch("speech_analyser.speech_analyser.Diarizer.diarize", return_value=fake_turns):
-            result = AudioLens().analyse(silent_wav, diarize=True)
+            result = SpeechAnalyser().analyse(silent_wav, diarize=True)
 
         assert result["talk_time"] is not None
         assert "is_balanced" in result["talk_time"]
@@ -130,7 +130,7 @@ class TestAudioLensDiarization:
     def test_diarize_false_skips_diarizer(self, silent_wav: Path):
         from unittest.mock import patch
         with patch("speech_analyser.speech_analyser.Diarizer.diarize") as mock_diarize:
-            AudioLens().analyse(silent_wav, diarize=False)
+            SpeechAnalyser().analyse(silent_wav, diarize=False)
         mock_diarize.assert_not_called()
 
     def test_model_not_available_reraises_not_wrapped(self, silent_wav: Path):
@@ -138,7 +138,7 @@ class TestAudioLensDiarization:
         from speech_analyser.exceptions import ModelNotAvailableError
         with patch("speech_analyser.speech_analyser.Diarizer.diarize", side_effect=ModelNotAvailableError("no model")):
             with pytest.raises(ModelNotAvailableError):
-                AudioLens().analyse(silent_wav, diarize=True)
+                SpeechAnalyser().analyse(silent_wav, diarize=True)
 
 
 class TestAssignSpeakers:

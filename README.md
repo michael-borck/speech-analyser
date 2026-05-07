@@ -24,9 +24,9 @@ export HF_TOKEN=hf_...
 ### Python
 
 ```python
-from audio_lens import AudioLens
+from speech_analyser import SpeechAnalyser
 
-lens = AudioLens()             # model_size="base" by default
+lens = SpeechAnalyser()             # model_size="base" by default
 result = lens.analyse("recording.mp3")
 
 m = result["speech_metrics"]

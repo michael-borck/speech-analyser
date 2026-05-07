@@ -1,6 +1,6 @@
-"""Unit tests for SpeechAnalyzer — no audio files needed."""
+"""Unit tests for SpeechMetrics — no audio files needed."""
 
-from speech_analyser.speech_analyzer import SpeechAnalyzer, _detect_fillers, _pace_category, _quality_score, _insights
+from speech_analyser.speech_metrics import SpeechMetrics, _detect_fillers, _pace_category, _quality_score, _insights
 from speech_analyser.transcriber import Segment, TranscriptionResult
 
 
@@ -99,48 +99,48 @@ class TestQualityScore:
             assert v in valid
 
 
-class TestSpeechAnalyzer:
+class TestSpeechMetrics:
     def test_word_count(self):
         result = _make_result("hello world foo bar", duration=60.0)
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert m["word_count"] == 4
 
     def test_speaking_rate_wpm(self):
         text = " ".join(["word"] * 60)
         result = _make_result(text, duration=60.0)
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert m["speaking_rate_wpm"] == 60.0
 
     def test_filler_word_rate_is_fraction(self):
         # "um" appears 1 time in 10 words → rate = 0.1
         result = _make_result("um " + " ".join(["word"] * 9), duration=10.0)
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert 0.0 <= m["filler_word_rate"] <= 1.0
 
     def test_silence_ratio_between_0_and_1(self):
         result = _make_result("hello", duration=10.0)
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert 0.0 <= m["silence_ratio"] <= 1.0
 
     def test_pace_category_present(self):
         result = _make_result("hello world", duration=10.0)
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert m["pace_category"] in {"slow", "natural", "fast"}
 
     def test_quality_score_present(self):
         result = _make_result("hello world", duration=10.0)
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert "quality_score" in m
         assert 0 <= m["quality_score"] <= 100
 
     def test_quality_factors_keys(self):
         result = _make_result("hello world", duration=10.0)
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert set(m["quality_factors"].keys()) == {"clarity", "depth", "balance", "pace"}
 
     def test_insights_structure(self):
         result = _make_result("hello world", duration=10.0)
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert "insights" in m
         assert "strengths" in m["insights"]
         assert "observations" in m["insights"]
@@ -149,19 +149,19 @@ class TestSpeechAnalyzer:
 
     def test_empty_transcript(self):
         result = _make_result("", duration=10.0, segments=[])
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert m["word_count"] == 0
         assert m["speaking_rate_wpm"] == 0.0
 
     def test_multi_word_fillers_detected(self):
         result = _make_result("you know I think you know maybe", duration=10.0)
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert "you know" in m["filler_words_found"]
         assert m["filler_word_count"] >= 2
 
     def test_empty_transcript_pace_category_is_unknown(self):
         result = _make_result("", duration=10.0, segments=[])
-        m = SpeechAnalyzer().analyse(result)
+        m = SpeechMetrics().analyse(result)
         assert m["pace_category"] == "unknown"
 
 

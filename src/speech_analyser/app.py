@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from .speech_analyser import AudioLens
+from .speech_analyser import SpeechAnalyser
 from .exceptions import AudioLensError, ModelNotAvailableError
 from .schemas import AudioAnalysis, HealthResponse
 from .transcriber import SUPPORTED_MODELS
@@ -15,13 +15,13 @@ from .transcriber import SUPPORTED_MODELS
 _VERSION = "0.1.0"
 _START_TIME = time.time()
 
-# Cache AudioLens instances by model size — model loading is expensive
-_lens_cache: dict[str, AudioLens] = {}
+# Cache SpeechAnalyser instances by model size — model loading is expensive
+_lens_cache: dict[str, SpeechAnalyser] = {}
 
 
-def _get_lens(model_size: str) -> AudioLens:
+def _get_lens(model_size: str) -> SpeechAnalyser:
     if model_size not in _lens_cache:
-        _lens_cache[model_size] = AudioLens(model_size=model_size)
+        _lens_cache[model_size] = SpeechAnalyser(model_size=model_size)
     return _lens_cache[model_size]
 
 

@@ -53,12 +53,12 @@ def _main_serve(argv: list[str]) -> None:
 
 
 def _cmd_analyse(args) -> None:
-    from .speech_analyser import AudioLens
+    from .speech_analyser import SpeechAnalyser
     from .exceptions import AudioLensError, ModelNotAvailableError
 
     model = args.model if args.model is not None else os.getenv("AUDIO_LENS_MODEL", "base")
     diarize = args.diarize or os.getenv("AUDIO_LENS_DIARIZE", "false").lower() == "true"
-    lens = AudioLens(model_size=model)
+    lens = SpeechAnalyser(model_size=model)
 
     try:
         result = lens.analyse(args.file, diarize=diarize)

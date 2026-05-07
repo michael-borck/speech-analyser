@@ -3,7 +3,7 @@ from typing import Any
 
 from .diarizer import Diarizer, DiarizationTurn
 from .exceptions import AudioLensError, ModelNotAvailableError
-from .speech_analyzer import SpeechAnalyzer
+from .speech_metrics import SpeechMetrics
 from .transcriber import Segment, Transcriber
 
 
@@ -94,7 +94,7 @@ def _compute_talk_time(
     return talk_time, speaker_data
 
 
-class AudioLens:
+class SpeechAnalyser:
     """Transcribes audio files and returns speech metrics.
 
     Args:
@@ -103,7 +103,7 @@ class AudioLens:
 
     def __init__(self, model_size: str = "base") -> None:
         self._transcriber = Transcriber(model_size=model_size)
-        self._analyzer = SpeechAnalyzer()
+        self._analyzer = SpeechMetrics()
         self._diarizer = Diarizer()
 
     def analyse(self, file_path: Path | str, diarize: bool = False) -> dict[str, Any]:

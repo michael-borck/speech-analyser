@@ -176,7 +176,7 @@ def _insights(
     return {"strengths": strengths, "observations": observations}
 
 
-class SpeechAnalyzer:
+class SpeechMetrics:
     """Derives speech quality metrics from a TranscriptionResult."""
 
     def analyse(
