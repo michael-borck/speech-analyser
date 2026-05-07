@@ -120,7 +120,9 @@ class Diarizer:
 
         # pyannote 4.x returns DiarizeOutput wrapping the Annotation as
         # .speaker_diarization; pyannote 3.x returns the Annotation directly.
-        annotation = getattr(output, "speaker_diarization", output)
+        # Type-name check rather than getattr so test mocks (MagicMock auto-
+        # creates any attribute) fall through to the legacy path.
+        annotation = output.speaker_diarization if type(output).__name__ == "DiarizeOutput" else output
 
         turns = [
             DiarizationTurn(
