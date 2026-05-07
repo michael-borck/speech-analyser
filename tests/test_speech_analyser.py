@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from speech_analyser import SpeechAnalyser
-from speech_analyser.exceptions import AudioLensError
+from speech_analyser.exceptions import SpeechAnalyserError
 
 
 class TestSpeechAnalyserSilent:
@@ -16,19 +16,19 @@ class TestSpeechAnalyserSilent:
         lens = SpeechAnalyser()
         p = tmp_path / "file.xyz"
         p.write_bytes(b"not audio")
-        with pytest.raises(AudioLensError, match="Unsupported"):
+        with pytest.raises(SpeechAnalyserError, match="Unsupported"):
             lens.analyse(p)
 
     def test_missing_file_raises(self, tmp_path: Path):
         lens = SpeechAnalyser()
-        with pytest.raises(AudioLensError, match="not found"):
+        with pytest.raises(SpeechAnalyserError, match="not found"):
             lens.analyse(tmp_path / "missing.wav")
 
     def test_string_path_accepted(self, tmp_path: Path):
         lens = SpeechAnalyser()
         p = tmp_path / "file.xyz"
         p.write_bytes(b"not audio")
-        with pytest.raises(AudioLensError, match="Unsupported"):
+        with pytest.raises(SpeechAnalyserError, match="Unsupported"):
             lens.analyse(str(p))
 
     def test_success_shape(self, silent_wav: Path):
@@ -46,9 +46,9 @@ class TestSpeechAnalyserSilent:
         assert "success" not in result
         assert "data" not in result
 
-    def test_model_not_available_is_subclass_of_audio_lens_error(self):
-        from speech_analyser.exceptions import ModelNotAvailableError, AudioLensError
-        assert issubclass(ModelNotAvailableError, AudioLensError)
+    def test_model_not_available_is_subclass_of_speech_analyser_error(self):
+        from speech_analyser.exceptions import ModelNotAvailableError, SpeechAnalyserError
+        assert issubclass(ModelNotAvailableError, SpeechAnalyserError)
 
     def test_model_not_available_exported_from_package(self):
         from speech_analyser import ModelNotAvailableError  # noqa: F401

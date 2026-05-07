@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from speech_analyser.diarizer import Diarizer, DiarizationTurn
-from speech_analyser.exceptions import AudioLensError, ModelNotAvailableError
+from speech_analyser.exceptions import SpeechAnalyserError, ModelNotAvailableError
 
 
 class TestDiarizerImportGuard:
@@ -16,10 +16,10 @@ class TestDiarizerImportGuard:
             with pytest.raises(ModelNotAvailableError, match="not installed"):
                 d.diarize(tmp_path / "x.wav")
 
-    def test_model_not_available_is_audio_lens_error(self, tmp_path):
+    def test_model_not_available_is_speech_analyser_error(self, tmp_path):
         d = Diarizer()
         with patch.object(d, "_import_pipeline", side_effect=ImportError("no module")):
-            with pytest.raises(AudioLensError):
+            with pytest.raises(SpeechAnalyserError):
                 d.diarize(tmp_path / "x.wav")
 
     def test_raises_model_not_available_when_from_pretrained_fails(self, tmp_path):
@@ -88,10 +88,10 @@ class TestDiarizerTurns:
         d.diarize(silent_wav, num_speakers=2)
         mock_pipeline.assert_called_once_with(str(silent_wav), num_speakers=2)
 
-    def test_pipeline_error_raises_audio_lens_error(self, silent_wav):
+    def test_pipeline_error_raises_speech_analyser_error(self, silent_wav):
         d = Diarizer()
         d._pipeline = MagicMock(side_effect=RuntimeError("CUDA error"))
-        with pytest.raises(AudioLensError, match="Diarization failed"):
+        with pytest.raises(SpeechAnalyserError, match="Diarization failed"):
             d.diarize(silent_wav)
 
     def test_pipeline_cached_after_first_load(self, silent_wav):

@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from .diarizer import Diarizer, DiarizationTurn
-from .exceptions import AudioLensError, ModelNotAvailableError
+from .exceptions import SpeechAnalyserError, ModelNotAvailableError
 from .speech_metrics import SpeechMetrics
 from .transcriber import Segment, Transcriber
 
@@ -111,7 +111,7 @@ class SpeechAnalyser:
 
         Args:
             file_path: path to the audio file.
-            diarize: if True, run speaker diarization (requires audio-lens[diarization]
+            diarize: if True, run speaker diarization (requires speech-analyser[diarization]
                      and HF_TOKEN env var). Default False.
 
         Returns:
@@ -119,7 +119,7 @@ class SpeechAnalyser:
             diarization_available, speakers, talk_time, file_path, file_size.
 
         Raises:
-            AudioLensError: file missing, format unsupported, or transcription failed.
+            SpeechAnalyserError: file missing, format unsupported, or transcription failed.
             ModelNotAvailableError: diarize=True but pyannote.audio not installed or
                                     no HF token configured.
         """
@@ -127,10 +127,10 @@ class SpeechAnalyser:
             file_path = Path(file_path)
 
         if not file_path.exists():
-            raise AudioLensError(f"File not found: {file_path}")
+            raise SpeechAnalyserError(f"File not found: {file_path}")
 
         if file_path.suffix.lower() not in self._transcriber.SUPPORTED_EXTENSIONS:
-            raise AudioLensError(
+            raise SpeechAnalyserError(
                 f"Unsupported audio format: {file_path.suffix}. "
                 f"Supported: {', '.join(sorted(self._transcriber.SUPPORTED_EXTENSIONS))}"
             )
@@ -175,7 +175,7 @@ class SpeechAnalyser:
                 "file_path": str(file_path),
                 "file_size": file_size,
             }
-        except (AudioLensError, ModelNotAvailableError):
+        except (SpeechAnalyserError, ModelNotAvailableError):
             raise
         except Exception as e:
-            raise AudioLensError(str(e)) from e
+            raise SpeechAnalyserError(str(e)) from e

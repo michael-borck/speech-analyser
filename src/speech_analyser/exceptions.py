@@ -1,8 +1,8 @@
-class AudioLensError(Exception):
-    """Raised when audio-lens cannot analyse a file."""
+class SpeechAnalyserError(Exception):
+    """Raised when speech-analyser cannot analyse a file."""
 
 
-class ModelNotAvailableError(AudioLensError):
+class ModelNotAvailableError(SpeechAnalyserError):
     """Raised when a required model is not installed or not yet downloaded.
 
     The message includes instructions for resolving the issue.

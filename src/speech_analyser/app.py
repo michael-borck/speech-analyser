@@ -8,7 +8,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .speech_analyser import SpeechAnalyser
-from .exceptions import AudioLensError, ModelNotAvailableError
+from .exceptions import SpeechAnalyserError, ModelNotAvailableError
 from .schemas import AudioAnalysis, HealthResponse
 from .transcriber import SUPPORTED_MODELS
 
@@ -26,7 +26,7 @@ def _get_lens(model_size: str) -> SpeechAnalyser:
 
 
 app = FastAPI(
-    title="audio-lens",
+    title="speech-analyser",
     description="Audio transcription and speech analysis API",
     version=_VERSION,
     docs_url="/docs",
@@ -74,7 +74,7 @@ if os.getenv("AUDIO_LENS_RATE_LIMIT_ENABLED", "false").lower() == "true":
 @app.get("/")
 async def root() -> dict[str, Any]:
     return {
-        "service": "audio-lens",
+        "service": "speech-analyser",
         "version": _VERSION,
         "status": "running",
         "endpoints": {"health": "/health", "analyse": "/analyse"},
@@ -96,7 +96,7 @@ async def analyse(
     model: str | None = Form(default=None, description="Whisper model size (optional)"),
     diarize: bool = Form(
         default=False,
-        description="Run speaker diarization (requires audio-lens[diarization] and HF_TOKEN)",
+        description="Run speaker diarization (requires speech-analyser[diarization] and HF_TOKEN)",
     ),
 ) -> AudioAnalysis:
     model_size = model if model is not None else os.getenv("AUDIO_LENS_MODEL", "base")
@@ -123,7 +123,7 @@ async def analyse(
         return AudioAnalysis(**data)
     except ModelNotAvailableError as e:
         raise HTTPException(status_code=503, detail=str(e))
-    except AudioLensError as e:
+    except SpeechAnalyserError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

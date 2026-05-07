@@ -54,7 +54,7 @@ def _main_serve(argv: list[str]) -> None:
 
 def _cmd_analyse(args) -> None:
     from .speech_analyser import SpeechAnalyser
-    from .exceptions import AudioLensError, ModelNotAvailableError
+    from .exceptions import SpeechAnalyserError, ModelNotAvailableError
 
     model = args.model if args.model is not None else os.getenv("AUDIO_LENS_MODEL", "base")
     diarize = args.diarize or os.getenv("AUDIO_LENS_DIARIZE", "false").lower() == "true"
@@ -68,7 +68,7 @@ def _cmd_analyse(args) -> None:
         else:
             print(f"Diarization unavailable: {e}", file=sys.stderr)
         sys.exit(2)
-    except AudioLensError as e:
+    except SpeechAnalyserError as e:
         if args.as_json:
             print(json.dumps({"error": str(e)}, indent=2), file=sys.stderr)
         else:

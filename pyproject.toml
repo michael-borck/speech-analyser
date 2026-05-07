@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "speech-analyser"
-version = "0.2.0"
-description = "Audio transcription and speech analysis for the poly-lens family"
+version = "0.2.1"
+description = "Audio transcription and speech analysis for the analyser family"
 requires-python = ">=3.11"
 dependencies = [
     "faster-whisper>=1.0.0",

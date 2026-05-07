@@ -1,4 +1,4 @@
-"""Tests for the audio-lens FastAPI app."""
+"""Tests for the speech-analyser FastAPI app."""
 
 from unittest.mock import patch
 
@@ -56,7 +56,7 @@ class TestRootEndpoint:
 
     def test_has_service_info(self):
         data = client.get("/").json()
-        assert data["service"] == "audio-lens"
+        assert data["service"] == "speech-analyser"
         assert "health" in data["endpoints"]
         assert "analyse" in data["endpoints"]
 

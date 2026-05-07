@@ -1,4 +1,4 @@
-"""Shared test fixtures for audio-lens."""
+"""Shared test fixtures for speech-analyser."""
 
 import wave
 from pathlib import Path
@@ -24,8 +24,8 @@ def silent_wav(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def sample_audio_dir() -> Path:
-    """Points to video-lens test fixtures if present, else returns None."""
-    candidate = Path(__file__).parents[3] / "video-lens" / "tests"
+    """Points to video-analyser test fixtures if present, else returns None."""
+    candidate = Path(__file__).parents[3] / "video-analyser" / "tests"
     return candidate if candidate.exists() else None
 
 

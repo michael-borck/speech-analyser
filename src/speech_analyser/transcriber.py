@@ -69,7 +69,7 @@ class Transcriber:
             if not _is_whisper_cached(self._model_size):
                 size_hint = _MODEL_SIZES.get(self._model_size, "unknown size")
                 print(
-                    f"[audio-lens] Downloading Whisper '{self._model_size}' model "
+                    f"[speech-analyser] Downloading Whisper '{self._model_size}' model "
                     f"({size_hint}) — this only happens once.",
                     file=sys.stderr,
                     flush=True,

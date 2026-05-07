@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .exceptions import AudioLensError, ModelNotAvailableError
+from .exceptions import SpeechAnalyserError, ModelNotAvailableError
 
 _MODEL_ID = "pyannote/speaker-diarization-3.1"
 
@@ -20,7 +20,7 @@ class Diarizer:
     """Speaker diarization via pyannote.audio.
 
     Requires:
-      - pip install 'audio-lens[diarization]'  (installs pyannote.audio)
+      - pip install 'speech-analyser[diarization]'  (installs pyannote.audio)
       - HF_TOKEN env var with access granted to pyannote/speaker-diarization-3.1
         Get a token: https://huggingface.co/settings/tokens
         Accept terms: https://huggingface.co/pyannote/speaker-diarization-3.1
@@ -53,7 +53,7 @@ class Diarizer:
         except ImportError as e:
             raise ModelNotAvailableError(
                 "pyannote.audio is not installed. "
-                "Install with: pip install 'audio-lens[diarization]'"
+                "Install with: pip install 'speech-analyser[diarization]'"
             ) from e
 
         token = self._resolve_token()
@@ -105,7 +105,7 @@ class Diarizer:
 
         Raises:
             ModelNotAvailableError: pyannote.audio not installed or no HF token.
-            AudioLensError: diarization pipeline failed.
+            SpeechAnalyserError: diarization pipeline failed.
         """
         pipeline = self._load()
 
@@ -116,7 +116,7 @@ class Diarizer:
         try:
             output = pipeline(str(audio_path), **kwargs)
         except Exception as e:
-            raise AudioLensError(f"Diarization failed: {e}") from e
+            raise SpeechAnalyserError(f"Diarization failed: {e}") from e
 
         # pyannote 4.x returns DiarizeOutput wrapping the Annotation as
         # .speaker_diarization; pyannote 3.x returns the Annotation directly.
