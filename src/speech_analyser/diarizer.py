@@ -57,7 +57,19 @@ class Diarizer:
             ) from e
 
         token = self._resolve_token()
-        if not token:
+
+        # Token only required when the model isn't already cached. Once cached
+        # (e.g. bundled inside an installer + HF_HUB_OFFLINE=1), Pipeline can
+        # load without contacting the gated repo.
+        is_cached = False
+        try:
+            from huggingface_hub import try_to_load_from_cache
+            cached = try_to_load_from_cache(_MODEL_ID, "config.yaml")
+            is_cached = isinstance(cached, str)
+        except Exception:
+            pass
+
+        if not token and not is_cached:
             raise ModelNotAvailableError(
                 "No Hugging Face token found. Diarization requires a token with access to "
                 f"{_MODEL_ID}. Set the HF_TOKEN environment variable. "
@@ -65,18 +77,13 @@ class Diarizer:
                 f"the model terms at https://huggingface.co/{_MODEL_ID}"
             )
 
-        try:
-            from huggingface_hub import try_to_load_from_cache
-            cached = try_to_load_from_cache(_MODEL_ID, "config.yaml")
-            if not isinstance(cached, str):
-                print(
-                    f"[audio-lens] Downloading diarization model '{_MODEL_ID}' "
-                    f"(~2 GB, first use only)...",
-                    file=sys.stderr,
-                    flush=True,
-                )
-        except Exception:
-            pass
+        if not is_cached:
+            print(
+                f"[speech-analyser] Downloading diarization model '{_MODEL_ID}' "
+                f"(~2 GB, first use only)...",
+                file=sys.stderr,
+                flush=True,
+            )
 
         try:
             self._pipeline = Pipeline.from_pretrained(_MODEL_ID, token=token)
@@ -107,9 +114,13 @@ class Diarizer:
             kwargs["num_speakers"] = num_speakers
 
         try:
-            annotation = pipeline(str(audio_path), **kwargs)
+            output = pipeline(str(audio_path), **kwargs)
         except Exception as e:
             raise AudioLensError(f"Diarization failed: {e}") from e
+
+        # pyannote 4.x returns DiarizeOutput wrapping the Annotation as
+        # .speaker_diarization; pyannote 3.x returns the Annotation directly.
+        annotation = getattr(output, "speaker_diarization", output)
 
         turns = [
             DiarizationTurn(
