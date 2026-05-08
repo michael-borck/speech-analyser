@@ -23,13 +23,6 @@ def silent_wav(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def sample_audio_dir() -> Path:
-    """Points to video-analyser test fixtures if present, else returns None."""
-    candidate = Path(__file__).parents[3] / "video-analyser" / "tests"
-    return candidate if candidate.exists() else None
-
-
-@pytest.fixture
 def silent_wav_bytes(silent_wav: Path) -> bytes:
     """Raw bytes of the silent WAV fixture."""
     return silent_wav.read_bytes()

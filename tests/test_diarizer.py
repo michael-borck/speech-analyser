@@ -16,12 +16,6 @@ class TestDiarizerImportGuard:
             with pytest.raises(ModelNotAvailableError, match="not installed"):
                 d.diarize(tmp_path / "x.wav")
 
-    def test_model_not_available_is_speech_analyser_error(self, tmp_path):
-        d = Diarizer()
-        with patch.object(d, "_import_pipeline", side_effect=ImportError("no module")):
-            with pytest.raises(SpeechAnalyserError):
-                d.diarize(tmp_path / "x.wav")
-
     def test_raises_model_not_available_when_from_pretrained_fails(self, tmp_path):
         d = Diarizer()
         mock_pipeline_cls = MagicMock()

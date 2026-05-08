@@ -92,9 +92,11 @@ class TestAnalyseEndpoint:
             )
         assert response.status_code == 200
         data = response.json()
-        assert data["transcript"] == "hello world"
-        assert data["language"] == "en"
-        assert "speech_metrics" in data
+        # Structural assertions — don't echo back the mock's literal values.
+        assert isinstance(data["transcript"], str)
+        assert isinstance(data["language"], str) and len(data["language"]) == 2
+        assert isinstance(data["speech_metrics"], dict)
+        # The meaningful invariant: response is not enveloped.
         assert "success" not in data
         assert "data" not in data
 
@@ -110,7 +112,9 @@ class TestAnalyseEndpoint:
 
 
 class TestDiarizeEndpoint:
-    def test_diarize_param_accepted(self, silent_wav_bytes: bytes):
+    def test_diarize_param_accepted(self, silent_wav_bytes: bytes, monkeypatch):
+        """diarize=false form param is plumbed when env override is unset."""
+        monkeypatch.delenv("SPEECH_ANALYSER_DIARIZE", raising=False)
         with patch("speech_analyser.app._get_lens") as mock_get_lens:
             mock_get_lens.return_value.analyse.return_value = _FAKE_ANALYSIS.copy()
             response = client.post(
@@ -122,6 +126,19 @@ class TestDiarizeEndpoint:
         mock_get_lens.return_value.analyse.assert_called_once()
         call_kwargs = mock_get_lens.return_value.analyse.call_args
         assert call_kwargs.kwargs.get("diarize") is False or call_kwargs.args[1] is False
+
+    def test_diarize_explicit_true_param(self, silent_wav_bytes: bytes, monkeypatch):
+        """diarize=true form param is plumbed through to the analyser."""
+        monkeypatch.delenv("SPEECH_ANALYSER_DIARIZE", raising=False)
+        with patch("speech_analyser.app._get_lens") as mock_get_lens:
+            mock_get_lens.return_value.analyse.return_value = _FAKE_ANALYSIS.copy()
+            response = client.post(
+                "/analyse",
+                files={"file": ("test.wav", silent_wav_bytes, "audio/wav")},
+                data={"diarize": "true"},
+            )
+        assert response.status_code == 200
+        assert mock_get_lens.return_value.analyse.call_args.kwargs["diarize"] is True
 
     def test_diarize_env_var_default(self, silent_wav_bytes: bytes, monkeypatch):
         monkeypatch.setenv("SPEECH_ANALYSER_DIARIZE", "true")

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "speech-analyser"
-version = "0.2.2"
+version = "0.2.3"
 description = "Audio transcription and speech analysis for the analyser family"
 requires-python = ">=3.11"
 dependencies = [
@@ -34,3 +34,7 @@ packages = ["src/speech_analyser"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not slow'"
+markers = [
+    "slow: tests that load real ML models (faster-whisper, pyannote) — opt-in with `pytest -m slow`",
+]

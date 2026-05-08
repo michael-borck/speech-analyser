@@ -31,6 +31,7 @@ class TestSpeechAnalyserSilent:
         with pytest.raises(SpeechAnalyserError, match="Unsupported"):
             lens.analyse(str(p))
 
+    @pytest.mark.slow
     def test_success_shape(self, silent_wav: Path):
         """Full transcription of silent audio — requires faster-whisper installed."""
         lens = SpeechAnalyser()
@@ -53,6 +54,7 @@ class TestSpeechAnalyserSilent:
     def test_model_not_available_exported_from_package(self):
         from speech_analyser import ModelNotAvailableError  # noqa: F401
 
+    @pytest.mark.slow
     def test_success_shape_has_diarization_keys(self, silent_wav: Path):
         lens = SpeechAnalyser()
         result = lens.analyse(silent_wav)
@@ -63,6 +65,7 @@ class TestSpeechAnalyserSilent:
         assert result["speakers"] is None
         assert result["talk_time"] is None
 
+    @pytest.mark.slow
     def test_segments_have_speaker_key(self, silent_wav: Path):
         lens = SpeechAnalyser()
         result = lens.analyse(silent_wav)
@@ -70,6 +73,7 @@ class TestSpeechAnalyserSilent:
             assert "speaker" in seg
             assert seg["speaker"] is None  # no diarization
 
+    @pytest.mark.slow
     def test_speech_metrics_has_new_fields(self, silent_wav: Path):
         lens = SpeechAnalyser()
         result = lens.analyse(silent_wav)
@@ -84,6 +88,8 @@ class TestSpeechAnalyserSilent:
 
 
 class TestSpeechAnalyserDiarization:
+    pytestmark = pytest.mark.slow
+
     def test_diarize_flag_populates_speakers(self, silent_wav: Path):
         from unittest.mock import patch
         from speech_analyser.diarizer import DiarizationTurn
@@ -109,10 +115,13 @@ class TestSpeechAnalyserDiarization:
         with patch("speech_analyser.speech_analyser.Diarizer.diarize", return_value=fake_turns):
             result = SpeechAnalyser().analyse(silent_wav, diarize=True)
 
-        # All segments should be assigned to SPEAKER_00 (covers the whole file)
-        for seg in result["segments"]:
-            if seg["speaker"] is not None:
-                assert seg["speaker"] == "SPEAKER_00"
+        # If Whisper produces segments on silent audio, every speaker
+        # assignment must be SPEAKER_00 (the lone fake turn covers the
+        # whole file). The vacuous "if not None" guard is gone — segments
+        # existing without speakers would be a real bug.
+        segments = result["segments"]
+        if segments:
+            assert all(seg["speaker"] == "SPEAKER_00" for seg in segments)
 
     def test_diarize_talk_time_populated(self, silent_wav: Path):
         from unittest.mock import patch
@@ -167,13 +176,23 @@ class TestAssignSpeakers:
 
     def test_max_overlap_wins(self):
         from speech_analyser.speech_analyser import _assign_speakers
-        # seg 1-4, turn0 covers 0-2.5 (1.5s overlap), turn1 covers 2.5-5 (1.5s overlap) → tie → first wins
+        # seg 0-5, turn0 covers 0-3 (3s overlap, 60%), turn1 covers 3-5 (2s overlap, 40%).
+        # Clear majority — verifies "max overlap wins" rather than tie-breaking.
+        seg = self._seg(0.0, 5.0)
+        t0 = self._turn(0.0, 3.0, "SPEAKER_00")  # 3.0s overlap
+        t1 = self._turn(3.0, 5.0, "SPEAKER_01")  # 2.0s overlap
+        result = _assign_speakers([seg], [t0, t1])
+        assert result[0] == "SPEAKER_00"
+
+    def test_max_overlap_tie_picks_first(self):
+        from speech_analyser.speech_analyser import _assign_speakers
+        # 50/50 tie — the first turn with the max overlap wins because
+        # `>` (not `>=`) is used in the comparison.
         seg = self._seg(1.0, 4.0)
         t0 = self._turn(0.0, 2.5, "SPEAKER_00")  # 1.5s overlap
         t1 = self._turn(2.5, 5.0, "SPEAKER_01")  # 1.5s overlap
         result = _assign_speakers([seg], [t0, t1])
-        # Either speaker is acceptable on a tie; just assert one was assigned
-        assert result[0] in ("SPEAKER_00", "SPEAKER_01")
+        assert result[0] == "SPEAKER_00"
 
     def test_empty_turns_returns_all_none(self):
         from speech_analyser.speech_analyser import _assign_speakers
@@ -205,8 +224,9 @@ class TestComputeTalkTime:
         from speech_analyser.speech_analyser import _compute_talk_time
         seg = self._seg(0.0, 5.0, "hello world")
         talk_time, speaker_data = _compute_talk_time([seg], [None])
-        # All None assignments → total_words for assigned speakers = 0 → returns None, []
-        assert speaker_data == [] or talk_time is None
+        # All None assignments → both contracts must hold: empty data AND no talk_time.
+        assert speaker_data == []
+        assert talk_time is None
 
     def test_is_balanced_true_for_equal_speakers(self):
         from speech_analyser.speech_analyser import _compute_talk_time
