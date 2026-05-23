@@ -12,6 +12,7 @@ from .speech_analyser import SpeechAnalyser
 from .exceptions import SpeechAnalyserError, ModelNotAvailableError
 from .schemas import AudioAnalysis, HealthResponse
 from .transcriber import SUPPORTED_MODELS
+from .manifest import MANIFEST
 
 # Sourced from pyproject.toml at install time so the FastAPI service version
 # always matches the installed package — no manual sync required.
@@ -91,6 +92,11 @@ async def health() -> HealthResponse:
         version=_VERSION,
         uptime=round(time.time() - _START_TIME, 1),
     )
+
+
+@app.get("/manifest")
+async def manifest() -> dict:
+    return MANIFEST
 
 
 @app.post("/analyse", response_model=AudioAnalysis)

@@ -22,6 +22,12 @@ def main() -> None:
         _main_serve(sys.argv[2:])
         return
 
+    if len(sys.argv) > 1 and sys.argv[1] == "manifest":
+        import json
+        from .manifest import MANIFEST
+        print(json.dumps(MANIFEST, indent=2))
+        return
+
     parser = argparse.ArgumentParser(
         prog="speech-analyser",
         description="Audio transcription and speech analysis",
