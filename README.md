@@ -2,7 +2,7 @@
 
 Transcribes audio and video files and returns speech metrics: word count, speaking rate, filler word detection, silence ratio, and a quality score with natural-language insights. Optionally identifies individual speakers.
 
-Part of the [analyser family](#the-analyser-family).
+Part of the [analyser family](https://github.com/michael-borck/lens-analysers).
 
 ## Install
 
