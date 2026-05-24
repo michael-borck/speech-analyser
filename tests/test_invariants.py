@@ -22,7 +22,7 @@ def test_package_imports_cleanly() -> None:
     so neither needs to actually load for this test to pass.
     """
     import speech_analyser  # noqa: F401
-    from speech_analyser.app import app  # noqa: F401
+    from speech_analyser.api import app  # noqa: F401
 
 
 def test_health_version_matches_installed_package() -> None:
@@ -34,7 +34,7 @@ def test_health_version_matches_installed_package() -> None:
     """
     from fastapi.testclient import TestClient
 
-    from speech_analyser.app import app
+    from speech_analyser.api import app
 
     client = TestClient(app)
     response = client.get("/health")

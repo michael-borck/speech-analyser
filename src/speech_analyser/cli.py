@@ -18,14 +18,17 @@ from pathlib import Path
 def main() -> None:
     import argparse
 
-    if len(sys.argv) > 1 and sys.argv[1] == "serve":
-        _main_serve(sys.argv[2:])
-        return
+    from lens_contract import run_contract_subcommands
 
-    if len(sys.argv) > 1 and sys.argv[1] == "manifest":
-        import json
-        from .manifest import MANIFEST
-        print(json.dumps(MANIFEST, indent=2))
+    from .manifest import MANIFEST
+
+    # `serve` and `manifest` are the family's shared subcommands (lens-contract).
+    if run_contract_subcommands(
+        MANIFEST,
+        app_path="speech_analyser.api:app",
+        default_port=8001,
+        env_prefix="SPEECH_ANALYSER",
+    ):
         return
 
     parser = argparse.ArgumentParser(
@@ -47,15 +50,6 @@ def main() -> None:
         help="Run speaker diarization (requires speech-analyser[diarization] and HF_TOKEN)",
     )
     _cmd_analyse(parser.parse_args())
-
-
-def _main_serve(argv: list[str]) -> None:
-    import argparse
-    parser = argparse.ArgumentParser(prog="speech-analyser serve", description="Start the HTTP server")
-    parser.add_argument("--port", type=int, default=int(os.getenv("SPEECH_ANALYSER_PORT", "8001")))
-    parser.add_argument("--host", default=os.getenv("SPEECH_ANALYSER_HOST", "127.0.0.1"))
-    parser.add_argument("--reload", action="store_true", help="Enable auto-reload (development only)")
-    _cmd_serve(parser.parse_args(argv))
 
 
 def _cmd_analyse(args) -> None:
@@ -112,16 +106,6 @@ def _cmd_analyse(args) -> None:
 
     print("\nTranscript:")
     print(result["transcript"])
-
-
-def _cmd_serve(args) -> None:
-    import uvicorn
-    uvicorn.run(
-        "speech_analyser.app:app",
-        host=args.host,
-        port=args.port,
-        reload=args.reload,
-    )
 
 
 if __name__ == "__main__":

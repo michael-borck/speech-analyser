@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from speech_analyser.app import app
+from speech_analyser.api import app
 
 client = TestClient(app)
 
@@ -84,7 +84,7 @@ class TestAnalyseEndpoint:
         assert "Invalid model" in response.json()["detail"]
 
     def test_valid_file_returns_analysis_shape(self, silent_wav_bytes: bytes):
-        with patch("speech_analyser.app._get_lens") as mock_get_lens:
+        with patch("speech_analyser.api._get_lens") as mock_get_lens:
             mock_get_lens.return_value.analyse.return_value = _FAKE_ANALYSIS.copy()
             response = client.post(
                 "/analyse",
@@ -101,7 +101,7 @@ class TestAnalyseEndpoint:
         assert "data" not in data
 
     def test_response_has_no_envelope(self, silent_wav_bytes: bytes):
-        with patch("speech_analyser.app._get_lens") as mock_get_lens:
+        with patch("speech_analyser.api._get_lens") as mock_get_lens:
             mock_get_lens.return_value.analyse.return_value = _FAKE_ANALYSIS.copy()
             data = client.post(
                 "/analyse",
@@ -115,7 +115,7 @@ class TestDiarizeEndpoint:
     def test_diarize_param_accepted(self, silent_wav_bytes: bytes, monkeypatch):
         """diarize=false form param is plumbed when env override is unset."""
         monkeypatch.delenv("SPEECH_ANALYSER_DIARIZE", raising=False)
-        with patch("speech_analyser.app._get_lens") as mock_get_lens:
+        with patch("speech_analyser.api._get_lens") as mock_get_lens:
             mock_get_lens.return_value.analyse.return_value = _FAKE_ANALYSIS.copy()
             response = client.post(
                 "/analyse",
@@ -130,7 +130,7 @@ class TestDiarizeEndpoint:
     def test_diarize_explicit_true_param(self, silent_wav_bytes: bytes, monkeypatch):
         """diarize=true form param is plumbed through to the analyser."""
         monkeypatch.delenv("SPEECH_ANALYSER_DIARIZE", raising=False)
-        with patch("speech_analyser.app._get_lens") as mock_get_lens:
+        with patch("speech_analyser.api._get_lens") as mock_get_lens:
             mock_get_lens.return_value.analyse.return_value = _FAKE_ANALYSIS.copy()
             response = client.post(
                 "/analyse",
@@ -142,7 +142,7 @@ class TestDiarizeEndpoint:
 
     def test_diarize_env_var_default(self, silent_wav_bytes: bytes, monkeypatch):
         monkeypatch.setenv("SPEECH_ANALYSER_DIARIZE", "true")
-        with patch("speech_analyser.app._get_lens") as mock_get_lens:
+        with patch("speech_analyser.api._get_lens") as mock_get_lens:
             mock_get_lens.return_value.analyse.return_value = _FAKE_ANALYSIS.copy()
             response = client.post(
                 "/analyse",
@@ -156,7 +156,7 @@ class TestDiarizeEndpoint:
 
     def test_diarize_model_unavailable_returns_503(self, silent_wav_bytes: bytes):
         from speech_analyser.exceptions import ModelNotAvailableError
-        with patch("speech_analyser.app._get_lens") as mock_get_lens:
+        with patch("speech_analyser.api._get_lens") as mock_get_lens:
             mock_get_lens.return_value.analyse.side_effect = ModelNotAvailableError(
                 "pyannote.audio is not installed"
             )

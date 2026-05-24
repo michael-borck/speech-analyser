@@ -1,23 +1,16 @@
 import os
 import tempfile
-import time
-from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
+from lens_contract import add_contract_routes, add_cors, add_rate_limit
 
 from .speech_analyser import SpeechAnalyser
 from .exceptions import SpeechAnalyserError, ModelNotAvailableError
-from .schemas import AudioAnalysis, HealthResponse
+from .schemas import AudioAnalysis
 from .transcriber import SUPPORTED_MODELS
 from .manifest import MANIFEST
-
-# Sourced from pyproject.toml at install time so the FastAPI service version
-# always matches the installed package — no manual sync required.
-_VERSION = version("speech-analyser")
-_START_TIME = time.time()
 
 # Cache SpeechAnalyser instances by model size — model loading is expensive
 _lens_cache: dict[str, SpeechAnalyser] = {}
@@ -29,74 +22,32 @@ def _get_lens(model_size: str) -> SpeechAnalyser:
     return _lens_cache[model_size]
 
 
+# MANIFEST["version"] is the installed package version (resolved by lens-contract),
+# so the FastAPI service version always matches the package — no manual sync.
 app = FastAPI(
     title="speech-analyser",
     description="Audio transcription and speech analysis API",
-    version=_VERSION,
+    version=MANIFEST["version"],
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
-# CORS — desktop mode allows any localhost origin (for Electron)
-if os.getenv("SPEECH_ANALYSER_MODE") == "desktop":
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origin_regex=(
-            r"^(https?://localhost(:\d+)?"
-            r"|https?://127\.0\.0\.1(:\d+)?"
-            r"|file://.*"
-            r"|null)$"
-        ),
-        allow_credentials=False,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-else:
-    _origins = os.getenv(
-        "SPEECH_ANALYSER_ALLOWED_ORIGINS",
-        "http://localhost:3000,http://localhost:5173",
-    ).split(",")
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[o.strip() for o in _origins],
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["*"],
-    )
-
-# Optional rate limiting — off by default, enable with SPEECH_ANALYSER_RATE_LIMIT_ENABLED=true
-if os.getenv("SPEECH_ANALYSER_RATE_LIMIT_ENABLED", "false").lower() == "true":
-    from slowapi import Limiter, _rate_limit_exceeded_handler
-    from slowapi.errors import RateLimitExceeded
-    from slowapi.util import get_remote_address
-
-    _limiter = Limiter(key_func=get_remote_address)
-    app.state.limiter = _limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+# GET /health and GET /manifest (the family contract, via lens-contract).
+add_contract_routes(app, MANIFEST)
+# CORS — env-driven: SPEECH_ANALYSER_MODE=desktop (Electron) or SPEECH_ANALYSER_ALLOWED_ORIGINS.
+add_cors(app, env_prefix="SPEECH_ANALYSER")
+# Opt-in rate limiting — SPEECH_ANALYSER_RATE_LIMIT_ENABLED=true (needs the [ratelimit] extra).
+add_rate_limit(app, env_prefix="SPEECH_ANALYSER")
 
 
 @app.get("/")
 async def root() -> dict[str, Any]:
     return {
         "service": "speech-analyser",
-        "version": _VERSION,
+        "version": MANIFEST["version"],
         "status": "running",
         "endpoints": {"health": "/health", "analyse": "/analyse"},
     }
-
-
-@app.get("/health", response_model=HealthResponse)
-async def health() -> HealthResponse:
-    return HealthResponse(
-        status="ok",
-        version=_VERSION,
-        uptime=round(time.time() - _START_TIME, 1),
-    )
-
-
-@app.get("/manifest")
-async def manifest() -> dict:
-    return MANIFEST
 
 
 @app.post("/analyse", response_model=AudioAnalysis)
@@ -120,6 +71,8 @@ async def analyse(
     if not diarize:
         diarize = os.getenv("SPEECH_ANALYSER_DIARIZE", "false").lower() == "true"
 
+    # Audio formats are sniffed from content by ffmpeg, but keep the upload's suffix
+    # (defaulting to .wav) so the analyser's extension check sees the real format.
     suffix = Path(file.filename or "upload").suffix or ".wav"
     content = await file.read()
 
