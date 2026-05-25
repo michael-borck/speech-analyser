@@ -1,7 +1,22 @@
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+
+@dataclass
+class Word:
+    """A single transcribed word with its timing and confidence.
+
+    `probability` is whisper's per-word confidence (0–1). Word-level timings let
+    consumers compute precise within-window metrics (per-segment WPM, pauses from
+    word gaps, filler localisation) that segment-level timing can't support.
+    """
+
+    word: str
+    start: float
+    end: float
+    probability: float
 
 
 @dataclass
@@ -10,6 +25,7 @@ class Segment:
     end: float
     text: str
     avg_logprob: float
+    words: list[Word] = field(default_factory=list)
 
 
 @dataclass
@@ -87,16 +103,24 @@ class Transcriber:
             )
 
         model = self._load()
-        raw_segments, info = model.transcribe(str(audio_path), word_timestamps=False)
+        # word_timestamps=True yields per-word start/end/probability — the granularity
+        # consumers need for precise within-window metrics (e.g. video-analyser's
+        # per-scene WPM, pause and filler detection). Slightly slower than segment-only.
+        raw_segments, info = model.transcribe(str(audio_path), word_timestamps=True)
 
         segments = []
         texts = []
         for seg in raw_segments:
+            words = [
+                Word(word=w.word, start=w.start, end=w.end, probability=w.probability)
+                for w in (seg.words or [])
+            ]
             segments.append(Segment(
                 start=seg.start,
                 end=seg.end,
                 text=seg.text.strip(),
                 avg_logprob=seg.avg_logprob,
+                words=words,
             ))
             texts.append(seg.text.strip())
 

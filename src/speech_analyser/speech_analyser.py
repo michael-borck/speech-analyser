@@ -165,6 +165,17 @@ class SpeechAnalyser:
                         "end": s.end,
                         "text": s.text,
                         "speaker": speaker_assignments[i],
+                        # Per-word timings + confidence (word_timestamps=True). Additive:
+                        # existing consumers that read start/end/text/speaker are unaffected.
+                        "words": [
+                            {
+                                "word": w.word,
+                                "start": w.start,
+                                "end": w.end,
+                                "probability": w.probability,
+                            }
+                            for w in s.words
+                        ],
                     }
                     for i, s in enumerate(result.segments)
                 ],
