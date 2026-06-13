@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from .diarizer import Diarizer, DiarizationTurn
+from .embedding import embed_document
 from .exceptions import SpeechAnalyserError, ModelNotAvailableError
 from .speech_metrics import SpeechMetrics
 from .transcriber import Segment, Transcriber
@@ -157,6 +158,7 @@ class SpeechAnalyser:
 
             return {
                 "transcript": result.text,
+                "embedding": embed_document(result.text),
                 "language": result.language,
                 "duration": result.duration,
                 "segments": [

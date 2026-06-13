@@ -22,6 +22,9 @@ dependencies = [
 diarization = [
     "pyannote.audio>=3.1.0",
 ]
+embeddings = [
+    "lens-embed[text]>=0.1.1",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.0.0",
@@ -32,6 +35,7 @@ dev = [
 # the published wheel, which keeps the plain `lens-contract[ratelimit]>=0.2.0` PyPI pin.
 [tool.uv.sources]
 lens-contract = { path = "../lens-contract", editable = true }
+lens-embed = { path = "../lens-embed", editable = true }
 
 [project.scripts]
 speech-analyser = "speech_analyser.cli:main"

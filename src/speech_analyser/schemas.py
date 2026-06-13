@@ -60,6 +60,9 @@ class AudioAnalysis(BaseModel):
     talk_time: TalkTime | None = None
     file_path: str
     file_size: int
+    # Pooled, L2-normalised transcript vector from lens-embed (pinned
+    # all-MiniLM-L6-v2). Comparable across members; None unless [embeddings] installed.
+    embedding: list[float] | None = None
 
 
 class HealthResponse(BaseModel):
