@@ -96,6 +96,29 @@ class Diarizer:
 
         return self._pipeline
 
+    @staticmethod
+    def _load_waveform(audio_path: Path) -> dict[str, Any]:
+        """Decode `audio_path` to pyannote's in-memory waveform format.
+
+        pyannote accepts {"waveform": (channel, time) float tensor,
+        "sample_rate": int} as well as a file path. Passing a path makes
+        pyannote 4.x decode via torchcodec, which hard-links specific
+        FFmpeg shared-library majors (libavutil.56-.60) and simply fails to
+        load on machines with a newer/older system FFmpeg — observed as
+        "name 'AudioDecoder' is not defined". Decoding here with PyAV
+        (faster-whisper's decode_audio, which bundles its own FFmpeg
+        libraries) removes torchcodec — and any system FFmpeg — from the
+        diarization path entirely.
+        """
+        import torch
+        from faster_whisper.audio import decode_audio
+
+        samples = decode_audio(str(audio_path), sampling_rate=16000)
+        return {
+            "waveform": torch.from_numpy(samples).unsqueeze(0),
+            "sample_rate": 16000,
+        }
+
     def diarize(
         self, audio_path: Path, num_speakers: int | None = None
     ) -> list[DiarizationTurn]:
@@ -114,7 +137,8 @@ class Diarizer:
             kwargs["num_speakers"] = num_speakers
 
         try:
-            output = pipeline(str(audio_path), **kwargs)
+            waveform = self._load_waveform(audio_path)
+            output = pipeline(waveform, **kwargs)
         except Exception as e:
             raise SpeechAnalyserError(f"Diarization failed: {e}") from e
 

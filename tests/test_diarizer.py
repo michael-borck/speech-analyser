@@ -80,7 +80,16 @@ class TestDiarizerTurns:
         d = Diarizer()
         d._pipeline = mock_pipeline
         d.diarize(silent_wav, num_speakers=2)
-        mock_pipeline.assert_called_once_with(str(silent_wav), num_speakers=2)
+        (call_args, call_kwargs) = mock_pipeline.call_args
+        assert call_kwargs == {"num_speakers": 2}
+        # The pipeline receives a pre-decoded waveform dict, NOT a file path:
+        # a path would make pyannote decode via torchcodec, whose FFmpeg
+        # shared-library linkage breaks on machines with a newer FFmpeg.
+        (waveform_arg,) = call_args
+        assert isinstance(waveform_arg, dict)
+        assert waveform_arg["sample_rate"] == 16000
+        assert waveform_arg["waveform"].ndim == 2  # (channel, time)
+        assert waveform_arg["waveform"].shape[0] == 1
 
     def test_pipeline_error_raises_speech_analyser_error(self, silent_wav):
         d = Diarizer()
