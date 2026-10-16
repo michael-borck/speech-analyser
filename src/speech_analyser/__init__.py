@@ -15,14 +15,22 @@ __version__ = _v("speech-analyser")
 del _v
 
 
-def analyse(file_path: str | Path, *, diarize: bool = False) -> dict[str, Any]:
-    """Analyse an audio file (module-level convenience wrapper).
+def analyse(
+    file_path: str | Path,
+    *,
+    diarize: bool = False,
+    language: str | None = None,
+    vad_filter: bool = False,
+) -> dict[str, Any]:
+    """Analyse an audio or video file (module-level convenience wrapper).
 
     Constructs a :class:`SpeechAnalyser` and delegates to its ``.analyse``.
     The whisper model is loaded lazily by the analyser when called, so
     importing this package never triggers a model download.
     """
-    return SpeechAnalyser().analyse(Path(file_path), diarize=diarize)
+    return SpeechAnalyser().analyse(
+        Path(file_path), diarize=diarize, language=language, vad_filter=vad_filter
+    )
 
 
 __all__ = [

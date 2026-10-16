@@ -40,20 +40,32 @@ print(result["transcript"])
 
 ```bash
 # Human-readable summary
-speech-analyser analyse recording.mp3
+speech-analyser recording.mp3
 
 # Larger model for better accuracy
-speech-analyser analyse lecture.wav --model small
+speech-analyser lecture.wav --model small
 
 # Machine-readable JSON
-speech-analyser analyse recording.m4a --json
+speech-analyser recording.m4a --json
 
 # Speaker diarization
-speech-analyser analyse interview.mp3 --diarize
+speech-analyser interview.mp3 --diarize
+
+# Video input, transcript file + SRT subtitles, timestamped lines
+speech-analyser lecture.mp4 -o lecture.txt --srt --timestamps
+
+# Force language, skip silence with the VAD filter
+speech-analyser podcast.mp3 --language en --vad
 
 # Start the HTTP server
 speech-analyser serve --port 8001
 ```
+
+File outputs (`-o`, `--srt`, `--timestamps`) were ported from a standalone
+transcribe.py script. `-o` writes the transcript to a text file; `--srt`
+writes SubRip subtitles next to the `-o` file (or next to the input);
+`--timestamps` prefixes each line with `[HH:MM:SS.mmm]`. Confirmations go
+to stderr, so `--json` output on stdout stays machine-readable.
 
 ### HTTP API
 
@@ -66,7 +78,7 @@ curl -X POST http://localhost:8001/analyse \
 
 Audio: `.mp3` `.wav` `.m4a` `.ogg` `.flac` `.aac` `.wma` `.opus`
 
-Video: `.mp4` `.mov` `.avi` `.mkv` `.webm` — audio track is extracted automatically.
+Video: `.mp4` `.m4v` `.mov` `.avi` `.mkv` `.webm` — the audio track is extracted to a temporary 16 kHz mono WAV with ffmpeg (must be on PATH; only needed for video inputs).
 
 ## Model sizes
 

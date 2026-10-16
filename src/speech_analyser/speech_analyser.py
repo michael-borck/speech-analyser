@@ -5,7 +5,7 @@ from .diarizer import Diarizer, DiarizationTurn
 from .embedding import embed_document
 from .exceptions import SpeechAnalyserError, ModelNotAvailableError
 from .speech_metrics import SpeechMetrics
-from .transcriber import Segment, Transcriber
+from .transcriber import Segment, Transcriber, extracted_audio, is_video_container
 
 
 def _assign_speakers(
@@ -107,13 +107,24 @@ class SpeechAnalyser:
         self._analyzer = SpeechMetrics()
         self._diarizer = Diarizer()
 
-    def analyse(self, file_path: Path | str, diarize: bool = False) -> dict[str, Any]:
-        """Analyse an audio file.
+    def analyse(
+        self,
+        file_path: Path | str,
+        diarize: bool = False,
+        language: str | None = None,
+        vad_filter: bool = False,
+    ) -> dict[str, Any]:
+        """Analyse an audio or video file.
 
         Args:
-            file_path: path to the audio file.
+            file_path: path to the audio or video file. Video containers
+                (mp4/mov/mkv/webm/…) have their audio extracted via ffmpeg.
             diarize: if True, run speaker diarization (requires speech-analyser[diarization]
                      and HF_TOKEN env var). Default False.
+            language: force a transcription language code (e.g. "en")
+                instead of auto-detection. Default None (auto-detect).
+            vad_filter: skip silence with faster-whisper's voice-activity
+                filter. Default False.
 
         Returns:
             Analysis dict with transcript, language, duration, segments, speech_metrics,
@@ -130,15 +141,38 @@ class SpeechAnalyser:
         if not file_path.exists():
             raise SpeechAnalyserError(f"File not found: {file_path}")
 
-        if file_path.suffix.lower() not in self._transcriber.SUPPORTED_EXTENSIONS:
+        if file_path.suffix.lower() not in self._transcriber.ALL_EXTENSIONS:
             raise SpeechAnalyserError(
                 f"Unsupported audio format: {file_path.suffix}. "
-                f"Supported: {', '.join(sorted(self._transcriber.SUPPORTED_EXTENSIONS))}"
+                f"Supported: {', '.join(sorted(self._transcriber.ALL_EXTENSIONS))}"
             )
 
+        # Video: extract the audio track ONCE and feed the same canonical
+        # WAV to both transcription and diarization (the diarizer's decoder
+        # cannot be relied on for video containers).
+        if is_video_container(file_path):
+            try:
+                with extracted_audio(file_path) as wav_path:
+                    return self._analyse_audio(
+                        wav_path, file_path, diarize, language, vad_filter
+                    )
+            except ValueError as e:
+                raise SpeechAnalyserError(str(e)) from e
+        return self._analyse_audio(file_path, file_path, diarize, language, vad_filter)
+
+    def _analyse_audio(
+        self,
+        audio_path: Path,
+        original_path: Path,
+        diarize: bool,
+        language: str | None,
+        vad_filter: bool,
+    ) -> dict[str, Any]:
         try:
-            file_size = file_path.stat().st_size
-            result = self._transcriber.transcribe(file_path)
+            file_size = original_path.stat().st_size
+            result = self._transcriber.transcribe(
+                audio_path, language=language, vad_filter=vad_filter
+            )
 
             diarization_available = False
             speaker_assignments: list[str | None] = [None] * len(result.segments)
@@ -146,7 +180,7 @@ class SpeechAnalyser:
             speaker_data: list[dict[str, Any]] = []
 
             if diarize:
-                turns = self._diarizer.diarize(file_path)
+                turns = self._diarizer.diarize(audio_path)
                 speaker_assignments = _assign_speakers(result.segments, turns)
                 diarization_available = True
                 talk_time, speaker_data = _compute_talk_time(result.segments, speaker_assignments, turns)
@@ -185,7 +219,7 @@ class SpeechAnalyser:
                 "diarization_available": diarization_available,
                 "speakers": speaker_data if speaker_data else None,
                 "talk_time": talk_time,
-                "file_path": str(file_path),
+                "file_path": str(original_path),
                 "file_size": file_size,
             }
         except (SpeechAnalyserError, ModelNotAvailableError):
