@@ -130,6 +130,23 @@ class Diarizer:
             ModelNotAvailableError: pyannote.audio not installed or no HF token.
             SpeechAnalyserError: diarization pipeline failed.
         """
+        turns, _ = self.diarize_with_embeddings(audio_path, num_speakers)
+        return turns
+
+    def diarize_with_embeddings(
+        self, audio_path: Path, num_speakers: int | None = None
+    ) -> tuple[list[DiarizationTurn], dict[str, list[float]]]:
+        """Diarize, also returning one speaker embedding (voiceprint) per speaker.
+
+        The diarization pipeline already computes a 256-dim wespeaker
+        embedding per speaker cluster (pyannote 4.x exposes it as
+        DiarizeOutput.speaker_embeddings, rows aligned with the
+        annotation's label order). Returning it costs nothing extra and
+        lets consumers recognise the same voice across recordings by
+        cosine similarity. Embeddings are {} when the pipeline output
+        does not carry them (pyannote 3.x) or its rows do not line up
+        with the annotation labels — never guessed.
+        """
         pipeline = self._load()
 
         kwargs: dict[str, Any] = {}
@@ -146,7 +163,8 @@ class Diarizer:
         # .speaker_diarization; pyannote 3.x returns the Annotation directly.
         # Type-name check rather than getattr so test mocks (MagicMock auto-
         # creates any attribute) fall through to the legacy path.
-        annotation = output.speaker_diarization if type(output).__name__ == "DiarizeOutput" else output
+        is_v4 = type(output).__name__ == "DiarizeOutput"
+        annotation = output.speaker_diarization if is_v4 else output
 
         turns = [
             DiarizationTurn(
@@ -157,4 +175,26 @@ class Diarizer:
             for turn, _, speaker in annotation.itertracks(yield_label=True)
         ]
         turns.sort(key=lambda t: t.start)
-        return turns
+        return turns, _extract_embeddings(output, annotation) if is_v4 else {}
+
+
+def _extract_embeddings(output: Any, annotation: Any) -> dict[str, list[float]]:
+    """Map DiarizeOutput.speaker_embeddings rows to speaker labels.
+
+    Rows follow the annotation's label order. Any shape/label mismatch
+    yields {} rather than a guess — a wrong voiceprint is worse than none.
+    """
+    try:
+        import numpy as np
+
+        embeddings = np.asarray(output.speaker_embeddings, dtype=float)
+        labels = list(annotation.labels())
+        if embeddings.ndim != 2 or embeddings.shape[0] != len(labels):
+            return {}
+        return {
+            label: [round(float(v), 6) for v in row]
+            for label, row in zip(labels, embeddings)
+        }
+    except Exception:
+        return {}
+

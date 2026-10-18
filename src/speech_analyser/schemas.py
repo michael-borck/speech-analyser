@@ -64,6 +64,8 @@ class AudioAnalysis(BaseModel):
     diarization_available: bool
     # Raw diarization turns in recording order; [] unless diarized.
     turns: list[SpeakerTurn] = []
+    # Per-speaker voiceprint embeddings keyed by cluster label; {} unless diarized.
+    speaker_embeddings: dict[str, list[float]] = {}
     speakers: list[SpeakerInfo] | None = None
     talk_time: TalkTime | None = None
     file_path: str

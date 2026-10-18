@@ -97,7 +97,7 @@ class TestSpeechAnalyserDiarization:
         fake_turns = [
             DiarizationTurn(start=0.0, end=0.5, speaker="SPEAKER_00"),
         ]
-        with patch("speech_analyser.speech_analyser.Diarizer.diarize", return_value=fake_turns):
+        with patch("speech_analyser.speech_analyser.Diarizer.diarize_with_embeddings", return_value=(fake_turns, {"SPEAKER_00": [0.1] * 256, "SPEAKER_01": [0.2] * 256})):
             result = SpeechAnalyser().analyse(silent_wav, diarize=True)
 
         assert result["diarization_available"] is True
@@ -112,7 +112,7 @@ class TestSpeechAnalyserDiarization:
         fake_turns = [
             DiarizationTurn(start=0.0, end=10.0, speaker="SPEAKER_00"),
         ]
-        with patch("speech_analyser.speech_analyser.Diarizer.diarize", return_value=fake_turns):
+        with patch("speech_analyser.speech_analyser.Diarizer.diarize_with_embeddings", return_value=(fake_turns, {"SPEAKER_00": [0.1] * 256, "SPEAKER_01": [0.2] * 256})):
             result = SpeechAnalyser().analyse(silent_wav, diarize=True)
 
         # If Whisper produces segments on silent audio, every speaker
@@ -130,7 +130,7 @@ class TestSpeechAnalyserDiarization:
         fake_turns = [
             DiarizationTurn(start=0.0, end=0.5, speaker="SPEAKER_00"),
         ]
-        with patch("speech_analyser.speech_analyser.Diarizer.diarize", return_value=fake_turns):
+        with patch("speech_analyser.speech_analyser.Diarizer.diarize_with_embeddings", return_value=(fake_turns, {"SPEAKER_00": [0.1] * 256, "SPEAKER_01": [0.2] * 256})):
             result = SpeechAnalyser().analyse(silent_wav, diarize=True)
 
         assert result["talk_time"] is not None
@@ -138,14 +138,14 @@ class TestSpeechAnalyserDiarization:
 
     def test_diarize_false_skips_diarizer(self, silent_wav: Path):
         from unittest.mock import patch
-        with patch("speech_analyser.speech_analyser.Diarizer.diarize") as mock_diarize:
+        with patch("speech_analyser.speech_analyser.Diarizer.diarize_with_embeddings") as mock_diarize:
             SpeechAnalyser().analyse(silent_wav, diarize=False)
         mock_diarize.assert_not_called()
 
     def test_model_not_available_reraises_not_wrapped(self, silent_wav: Path):
         from unittest.mock import patch
         from speech_analyser.exceptions import ModelNotAvailableError
-        with patch("speech_analyser.speech_analyser.Diarizer.diarize", side_effect=ModelNotAvailableError("no model")):
+        with patch("speech_analyser.speech_analyser.Diarizer.diarize_with_embeddings", side_effect=ModelNotAvailableError("no model")):
             with pytest.raises(ModelNotAvailableError):
                 SpeechAnalyser().analyse(silent_wav, diarize=True)
 
@@ -332,8 +332,8 @@ class TestTurnsAndWordSpeakers:
             "speech_analyser.speech_analyser.Transcriber.transcribe",
             return_value=self._fake_result(),
         ), patch(
-            "speech_analyser.speech_analyser.Diarizer.diarize",
-            return_value=fake_turns,
+            "speech_analyser.speech_analyser.Diarizer.diarize_with_embeddings",
+            return_value=(fake_turns, {"SPEAKER_00": [0.1] * 256, "SPEAKER_01": [0.2] * 256}),
         ):
             result = SpeechAnalyser().analyse(silent_wav, diarize=True)
 
@@ -341,6 +341,7 @@ class TestTurnsAndWordSpeakers:
             {"start": 0.0, "end": 1.0, "speaker": "SPEAKER_00"},
             {"start": 1.0, "end": 2.2, "speaker": "SPEAKER_01"},
         ]
+        assert result["speaker_embeddings"]["SPEAKER_00"] == [0.1] * 256
         # The segment straddles the boundary at 1.0s: words keep their own
         # speakers so consumers can split at the exact word.
         word_speakers = [w["speaker"] for w in result["segments"][0]["words"]]
@@ -360,6 +361,7 @@ class TestTurnsAndWordSpeakers:
             result = SpeechAnalyser().analyse(silent_wav, diarize=False)
 
         assert result["turns"] == []
+        assert result["speaker_embeddings"] == {}
         assert all(
             w["speaker"] is None for w in result["segments"][0]["words"]
         )

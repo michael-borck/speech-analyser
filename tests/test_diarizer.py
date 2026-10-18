@@ -115,3 +115,26 @@ class TestDiarizerTurns:
                     d.diarize(silent_wav)
 
         mock_import.assert_called_once()  # _import_pipeline only called once
+
+
+class TestExtractEmbeddings:
+    def test_maps_rows_to_labels(self):
+        import numpy as np
+        from speech_analyser.diarizer import _extract_embeddings
+
+        ann = MagicMock()
+        ann.labels.return_value = ["SPEAKER_00", "SPEAKER_01"]
+        out = MagicMock(speaker_embeddings=np.array([[0.1, 0.2], [0.3, 0.4]]))
+        assert _extract_embeddings(out, ann) == {
+            "SPEAKER_00": [0.1, 0.2],
+            "SPEAKER_01": [0.3, 0.4],
+        }
+
+    def test_mismatched_rows_yield_empty_not_a_guess(self):
+        import numpy as np
+        from speech_analyser.diarizer import _extract_embeddings
+
+        ann = MagicMock()
+        ann.labels.return_value = ["SPEAKER_00"]
+        out = MagicMock(speaker_embeddings=np.array([[0.1], [0.2]]))
+        assert _extract_embeddings(out, ann) == {}

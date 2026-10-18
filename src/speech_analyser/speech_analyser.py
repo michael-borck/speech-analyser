@@ -198,8 +198,11 @@ class SpeechAnalyser:
             speaker_data: list[dict[str, Any]] = []
             diarization_turns: list[DiarizationTurn] = []
 
+            speaker_embeddings: dict[str, list[float]] = {}
             if diarize:
-                diarization_turns = self._diarizer.diarize(audio_path)
+                diarization_turns, speaker_embeddings = (
+                    self._diarizer.diarize_with_embeddings(audio_path)
+                )
                 speaker_assignments = _assign_speakers(result.segments, diarization_turns)
                 _assign_word_speakers(result.segments, diarization_turns)
                 diarization_available = True
@@ -249,6 +252,10 @@ class SpeechAnalyser:
                     {"start": t.start, "end": t.end, "speaker": t.speaker}
                     for t in diarization_turns
                 ],
+                # One voiceprint embedding per diarized speaker, keyed by
+                # cluster label, for cross-recording identity matching by
+                # cosine similarity. {} unless diarized (or unavailable).
+                "speaker_embeddings": speaker_embeddings,
                 "speakers": speaker_data if speaker_data else None,
                 "talk_time": talk_time,
                 "file_path": str(original_path),
