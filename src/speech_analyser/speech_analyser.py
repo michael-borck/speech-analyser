@@ -8,21 +8,39 @@ from .speech_metrics import SpeechMetrics
 from .transcriber import Segment, Transcriber, extracted_audio, is_video_container
 
 
+def _speaker_for_span(
+    start: float, end: float, turns: list[DiarizationTurn]
+) -> str | None:
+    """Speaker whose diarization turn overlaps [start, end] the most."""
+    best_speaker: str | None = None
+    best_overlap = 0.0
+    for turn in turns:
+        overlap = max(0.0, min(end, turn.end) - max(start, turn.start))
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_speaker = turn.speaker
+    return best_speaker
+
+
 def _assign_speakers(
     segments: list[Segment], turns: list[DiarizationTurn]
 ) -> list[str | None]:
     """Assign each segment its speaker by maximum time overlap with diarization turns."""
-    result: list[str | None] = []
+    return [_speaker_for_span(seg.start, seg.end, turns) for seg in segments]
+
+
+def _assign_word_speakers(
+    segments: list[Segment], turns: list[DiarizationTurn]
+) -> None:
+    """Fill in Word.speaker for every word, by maximum overlap (in place).
+
+    Per-word attribution is what lets consumers split a Whisper segment at
+    the exact word where the voice changes; segment-level assignment alone
+    credits a straddling segment entirely to one speaker.
+    """
     for seg in segments:
-        best_speaker: str | None = None
-        best_overlap = 0.0
-        for turn in turns:
-            overlap = max(0.0, min(seg.end, turn.end) - max(seg.start, turn.start))
-            if overlap > best_overlap:
-                best_overlap = overlap
-                best_speaker = turn.speaker
-        result.append(best_speaker)
-    return result
+        for word in seg.words:
+            word.speaker = _speaker_for_span(word.start, word.end, turns)
 
 
 def _compute_talk_time(
@@ -178,12 +196,14 @@ class SpeechAnalyser:
             speaker_assignments: list[str | None] = [None] * len(result.segments)
             talk_time: dict[str, Any] | None = None
             speaker_data: list[dict[str, Any]] = []
+            diarization_turns: list[DiarizationTurn] = []
 
             if diarize:
-                turns = self._diarizer.diarize(audio_path)
-                speaker_assignments = _assign_speakers(result.segments, turns)
+                diarization_turns = self._diarizer.diarize(audio_path)
+                speaker_assignments = _assign_speakers(result.segments, diarization_turns)
+                _assign_word_speakers(result.segments, diarization_turns)
                 diarization_available = True
-                talk_time, speaker_data = _compute_talk_time(result.segments, speaker_assignments, turns)
+                talk_time, speaker_data = _compute_talk_time(result.segments, speaker_assignments, diarization_turns)
 
             metrics = self._analyzer.analyse(
                 result,
@@ -209,6 +229,10 @@ class SpeechAnalyser:
                                 "start": w.start,
                                 "end": w.end,
                                 "probability": w.probability,
+                                # Per-word diarization label (None unless
+                                # diarize=True): the exact word where the
+                                # voice changes inside a segment.
+                                "speaker": w.speaker,
                             }
                             for w in s.words
                         ],
@@ -217,6 +241,14 @@ class SpeechAnalyser:
                 ],
                 "speech_metrics": metrics,
                 "diarization_available": diarization_available,
+                # The diarizer's raw turns ({start,end,speaker} in recording
+                # order). Previously computed to label segments and then
+                # discarded, forcing consumers (Debrief) to approximate them
+                # from Whisper segment boundaries. Empty unless diarize=True.
+                "turns": [
+                    {"start": t.start, "end": t.end, "speaker": t.speaker}
+                    for t in diarization_turns
+                ],
                 "speakers": speaker_data if speaker_data else None,
                 "talk_time": talk_time,
                 "file_path": str(original_path),

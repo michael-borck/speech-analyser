@@ -292,3 +292,75 @@ class TestCLI:
         assert proc.returncode == 0
         assert "--port" in proc.stdout
         assert "--host" in proc.stdout
+
+
+class TestTurnsAndWordSpeakers:
+    """Raw turns + per-word speakers in analyse() output (0.9.0).
+
+    These replace the approximations Debrief previously had to build in its
+    own sidecar (/analyse-v2): turns were computed to label segments and
+    then discarded, and words carried no speaker at all.
+    """
+
+    def _fake_result(self):
+        from speech_analyser.transcriber import Segment, TranscriptionResult, Word
+
+        words = [
+            Word(word=" hello", start=0.0, end=0.4, probability=0.9),
+            Word(word=" there", start=0.5, end=0.9, probability=0.9),
+            Word(word=" general", start=1.1, end=1.6, probability=0.8),
+            Word(word=" kenobi", start=1.7, end=2.2, probability=0.8),
+        ]
+        seg = Segment(
+            start=0.0, end=2.2, text="hello there general kenobi",
+            avg_logprob=-0.2, words=words,
+        )
+        return TranscriptionResult(
+            text="hello there general kenobi", language="en",
+            duration=2.2, segments=[seg],
+        )
+
+    def test_analyse_returns_raw_turns_and_word_speakers(self, silent_wav: Path):
+        from unittest.mock import patch
+        from speech_analyser.diarizer import DiarizationTurn
+
+        fake_turns = [
+            DiarizationTurn(start=0.0, end=1.0, speaker="SPEAKER_00"),
+            DiarizationTurn(start=1.0, end=2.2, speaker="SPEAKER_01"),
+        ]
+        with patch(
+            "speech_analyser.speech_analyser.Transcriber.transcribe",
+            return_value=self._fake_result(),
+        ), patch(
+            "speech_analyser.speech_analyser.Diarizer.diarize",
+            return_value=fake_turns,
+        ):
+            result = SpeechAnalyser().analyse(silent_wav, diarize=True)
+
+        assert result["turns"] == [
+            {"start": 0.0, "end": 1.0, "speaker": "SPEAKER_00"},
+            {"start": 1.0, "end": 2.2, "speaker": "SPEAKER_01"},
+        ]
+        # The segment straddles the boundary at 1.0s: words keep their own
+        # speakers so consumers can split at the exact word.
+        word_speakers = [w["speaker"] for w in result["segments"][0]["words"]]
+        assert word_speakers == [
+            "SPEAKER_00", "SPEAKER_00", "SPEAKER_01", "SPEAKER_01",
+        ]
+
+    def test_analyse_without_diarize_has_empty_turns_and_null_word_speakers(
+        self, silent_wav: Path
+    ):
+        from unittest.mock import patch
+
+        with patch(
+            "speech_analyser.speech_analyser.Transcriber.transcribe",
+            return_value=self._fake_result(),
+        ):
+            result = SpeechAnalyser().analyse(silent_wav, diarize=False)
+
+        assert result["turns"] == []
+        assert all(
+            w["speaker"] is None for w in result["segments"][0]["words"]
+        )
+

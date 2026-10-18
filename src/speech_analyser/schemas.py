@@ -49,6 +49,12 @@ class TalkTime(BaseModel):
     dominant_speaker: str | None = None
 
 
+class SpeakerTurn(BaseModel):
+    start: float
+    end: float
+    speaker: str
+
+
 class AudioAnalysis(BaseModel):
     transcript: str
     language: str
@@ -56,6 +62,8 @@ class AudioAnalysis(BaseModel):
     segments: list[dict[str, Any]]
     speech_metrics: SpeechMetrics
     diarization_available: bool
+    # Raw diarization turns in recording order; [] unless diarized.
+    turns: list[SpeakerTurn] = []
     speakers: list[SpeakerInfo] | None = None
     talk_time: TalkTime | None = None
     file_path: str

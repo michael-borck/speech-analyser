@@ -22,6 +22,7 @@ class Word:
     start: float
     end: float
     probability: float
+    speaker: str | None = None  # filled in by SpeechAnalyser when diarizing
 
 
 @dataclass
